@@ -21,3 +21,9 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Database
+*.db
+
+# Design docs (internal only)
+OPEN_DESIGN_PROMPT*.md
