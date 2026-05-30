@@ -758,11 +758,21 @@ footer {
   .btn-primary { width: 100%; }
   .risk-header { flex-wrap: wrap; }
   .risk-file { order: 3; width: 100%; }
+  /* 历史记录移动端适配 */
+  #history-section { padding: 0 0 48px; }
+  /* 评论预览移动端 */
+  #github-comment-preview { font-size: 11px; }
+  /* checkbox行移动端换行 */
+  .checkbox-row { flex-wrap: wrap; gap: 6px; }
 }
 @media (max-width: 480px) {
   .container { padding: 0 16px; }
   .input-section { padding: 60px 0; }
   .input-section h1 { font-size: 28px; }
+  .score-big { font-size: 36px; }
+  .verdict-label { font-size: 22px; }
+  .risk-chip { display: none; }
+  .result-block-title { font-size: 20px; }
 }
 </style>
 <style data-od-tweaks-bridge-style="">
@@ -1021,6 +1031,38 @@ footer {
         <ul class="quick-win-list" id="quick-wins-list" data-od-id="path-1-0-3-5-1"></ul>
       </div>
 
+      <!-- GitHub 评论预览 Tab -->
+      <div class="result-block" id="comment-preview-block">
+        <div class="result-block-header" style="display:flex;align-items:center;justify-content:space-between">
+          <div class="result-block-title">GitHub 评论预览</div>
+          <button onclick="copyComment()" id="copy-btn"
+            style="background:var(--primary);color:#F5F0E8;border:none;padding:6px 16px;
+                   font-family:var(--font-sans);font-size:12px;font-weight:500;cursor:pointer;
+                   letter-spacing:.04em">
+            复制
+          </button>
+        </div>
+        <div id="github-comment-preview"
+          style="background:#fff;border:1px solid var(--border);padding:20px;
+                 font-family:var(--font-mono);font-size:12px;line-height:1.6;
+                 white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;
+                 color:#3C1518"></div>
+      </div>
+
+    </section>
+
+    <!-- 历史记录 -->
+    <section id="history-section" style="display:none;padding-bottom:48px">
+      <hr class="divider" style="margin-bottom:32px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="font-family:var(--font-serif);font-size:22px;color:var(--primary)">最近分析记录</h2>
+        <button onclick="clearHistory()"
+          style="background:none;border:1px solid var(--border);color:var(--info);
+                 font-family:var(--font-sans);font-size:12px;padding:4px 12px;cursor:pointer">
+          清除记录
+        </button>
+      </div>
+      <div id="history-list"></div>
     </section>
 
   </div>
@@ -1275,6 +1317,12 @@ function renderResults(data) {
     document.getElementById('comment-notice').style.display = 'flex';
     document.getElementById('comment-link').href = data.comment_url;
   }
+
+  // 评论预览
+  if (data.github_comment) showCommentPreview(data.github_comment);
+
+  // 保存历史
+  saveHistory(data);
 }
 
 function setStep(stepId, state) {
@@ -1347,6 +1395,109 @@ document.getElementById('pr-input').addEventListener('keydown', e => { if (e.key
 document.getElementById('pr-input').addEventListener('input', () => {
   document.getElementById('error-state').classList.remove('visible');
 });
+
+// ── 评论预览 ──────────────────────────────────────────────────────
+let _lastComment = '';
+
+function showCommentPreview(comment) {
+  _lastComment = comment;
+  const el = document.getElementById('github-comment-preview');
+  if (el) el.textContent = comment;
+}
+
+function copyComment() {
+  if (!_lastComment) return;
+  navigator.clipboard.writeText(_lastComment).then(() => {
+    const btn = document.getElementById('copy-btn');
+    const orig = btn.textContent;
+    btn.textContent = '已复制 ✓';
+    btn.style.background = '#3D7A4A';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = 'var(--primary)'; }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = _lastComment;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+// ── 历史记录 ──────────────────────────────────────────────────────
+const HISTORY_KEY = 'pr_review_history';
+const MAX_HISTORY = 5;
+
+function saveHistory(data) {
+  try {
+    const history = getHistory();
+    const entry = {
+      pr_url:       data.pr_url,
+      pr_title:     data.pr_title,
+      verdict:      data.verdict,
+      overall_score: data.overall_score,
+      high_count:   data.risks.filter(r => r.severity === 'HIGH').length,
+      analyzed_at:  new Date().toLocaleString('zh-CN'),
+      data:         data,
+    };
+    const updated = [entry, ...history.filter(h => h.pr_url !== data.pr_url)].slice(0, MAX_HISTORY);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+    renderHistory();
+  } catch(e) {}
+}
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function clearHistory() {
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+}
+
+function renderHistory() {
+  const history = getHistory();
+  const section = document.getElementById('history-section');
+  const list    = document.getElementById('history-list');
+  if (!history.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  const vc = { APPROVE:'✅', REQUEST_CHANGES:'🚫', COMMENT:'💬' };
+  list.innerHTML = history.map(h => `
+    <div style="background:#fff;border:1px solid var(--border);padding:14px 18px;
+                margin-bottom:8px;display:flex;align-items:center;gap:16px;cursor:pointer"
+         onclick="loadFromHistory('${encodeURIComponent(h.pr_url)}')"
+         onmouseover="this.style.borderColor='var(--primary)'"
+         onmouseout="this.style.borderColor='var(--border)'">
+      <span style="font-size:18px">${vc[h.verdict]||'—'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-family:var(--font-sans);font-size:14px;color:var(--primary);
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.pr_title||h.pr_url}</div>
+        <div style="font-size:12px;color:var(--info);margin-top:2px">${h.analyzed_at}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-family:var(--font-serif);font-size:20px;color:var(--primary)">${h.overall_score}/10</div>
+        <div style="font-size:11px;color:#A44A3F">${h.high_count} HIGH</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function loadFromHistory(encodedUrl) {
+  const url = decodeURIComponent(encodedUrl);
+  const history = getHistory();
+  const entry = history.find(h => h.pr_url === url);
+  if (!entry) return;
+  document.getElementById('pr-input').value = url;
+  document.getElementById('empty-state').style.display = 'none';
+  renderResults(entry.data);
+  const results = document.getElementById('results-section');
+  results.classList.add('visible');
+  requestAnimationFrame(() => requestAnimationFrame(() => results.classList.add('fade-in')));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────
+renderHistory();
 </script>
 
 
