@@ -326,8 +326,8 @@ cp .env.example .env
 # GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxx
 
 # 3. 启动服务
-python -m uvicorn api:app --reload --port 8000
-# 打开 http://localhost:8000
+python -m uvicorn api:app --reload --port 8001
+# 打开 http://localhost:8001
 ```
 
 > **获取 GitHub Token：** Settings → Developer settings → Personal access tokens (classic) → 勾选 `repo`
