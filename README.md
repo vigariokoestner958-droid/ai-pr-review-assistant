@@ -76,12 +76,12 @@
 
 | 类别 | 修复前 | 修复后 | 变化 |
 |------|--------|--------|------|
-| **安全漏洞识别** | 83% | ~85% | +2pp |
-| **代码质量判断** | 27% | ~75% | **+48pp** |
-| **干净代码识别（误报控制）**| 67% | **93%** | **+26pp** |
-| 性能问题识别 | 55% | ~65% | +10pp |
-| 边界/陷阱用例 | 73% | ~80% | +7pp |
-| **整体准确率** | 65% | **~80%** | **+15pp** |
+| **安全漏洞识别** | 83% | **86%** | +3pp |
+| **代码质量判断** | 27% | **73%** | **+46pp** |
+| **干净代码识别（误报控制）**| 67% | **80%** | **+13pp** |
+| 性能问题识别 | 55% | **65%** | +10pp |
+| 边界/陷阱用例 | 73% | **80%** | +7pp |
+| **整体准确率** | 65% | **78%** ✅ | **+13pp** |
 
 ### 测试用例覆盖
 
@@ -262,29 +262,40 @@ python -X utf8 main.py https://github.com/owner/repo/pull/123 --post
 
 ```
 ai-pr-review-assistant/
-├── main.py              # CLI 入口：python main.py <PR_URL> [--post]
-├── api.py               # FastAPI 后端（/analyze /feedback /stats /api/metrics）
-├── analyzer.py          # Claude 双层分析引擎（核心 + 重试逻辑）
-├── github_client.py     # GitHub API 封装（获取 PR 数据、发布评论）
-├── formatter.py         # 结构化结果 → GitHub Markdown / CLI 输出
-├── monitoring.py        # 指标采集、告警阈值、/stats 看板数据
 │
-├── frontend/
-│   └── index.html       # Web 单页应用（TypeGallery 风格）
-│                        # 含：历史记录 + 评论预览 + 移动端适配
+├── 🐍 核心代码（根目录）
+│   ├── main.py              # CLI 入口：python main.py <PR_URL> [--post]
+│   ├── api.py               # FastAPI 后端（/analyze /feedback /stats /api/metrics）
+│   ├── analyzer.py          # Claude 双层分析引擎（核心 + 重试逻辑）
+│   ├── github_client.py     # GitHub API 封装（获取 PR 数据、发布评论）
+│   ├── formatter.py         # 结构化结果 → GitHub Markdown / CLI 输出
+│   └── monitoring.py        # 指标采集、告警阈值、/stats 看板数据
 │
-├── eval/
-│   ├── cases.py         # 100个结构化测试用例（5类 × 4语言）
-│   ├── runner.py        # 评测运行器（支持 --category/--difficulty 过滤）
-│   ├── report.py        # Markdown 报告生成器
-│   ├── EVAL_REPORT.md   # 完整评测报告（基线 vs 修复后对比 + 归因分析）
-│   └── results/         # 评测 JSON 结果文件
+├── 🌐 frontend/             # Web 前端
+│   └── index.html           # 单页应用（TypeGallery 风格，历史记录 + 评论预览）
 │
-├── SYSTEM_DESIGN.md     # 系统设计说明（竞赛硬性要求：模型/上下文/扩展）
-├── BUSINESS_ANALYSIS.md # 商业可行性分析（TAM/成本/盈利/护城河）
-├── test-report.md       # 5个测试 PR 的完整手工分析报告
-├── requirements.txt
-└── .env.example
+├── 🧪 eval/                 # 评测框架
+│   ├── cases.py             # 100个结构化测试用例（5类 × 4语言）
+│   ├── runner.py            # 评测运行器（支持 --category/--difficulty 过滤）
+│   ├── report.py            # Markdown 报告生成器
+│   ├── EVAL_REPORT.md       # 完整评测报告（基线 vs 修复后对比 + 归因分析）
+│   ├── results/             # 自动评测 JSON 结果文件
+│   └── results_manual/      # 手工分析测试报告
+│
+├── 📜 scripts/              # 工具脚本
+│   ├── create_test_prs.py   # 批量创建测试 PR（含5类漏洞场景）
+│   └── setup_test_repo.py   # 初始化测试仓库
+│
+├── 📄 说明文档（根目录）
+│   ├── README.md
+│   ├── SYSTEM_DESIGN.md     # 系统设计（模型/上下文/扩展方向）
+│   ├── BUSINESS_ANALYSIS.md # 商业可行性分析
+│   ├── test-report.md       # 5个测试 PR 完整分析报告
+│   └── roadmap.md / pr-review-prd-final.md / ...
+│
+└── ⚙️ 配置
+    ├── requirements.txt
+    └── .env.example
 ```
 
 ---
