@@ -24,11 +24,14 @@
 
 ### 📂 项目文档导览
 
-本项目的完整思路链路是：**想法 → 怎么做 → 计划 → 策略 → 技术 → 商业 → 验证 → 调优闭环**，每个阶段都有对应文档，评委可按需直接跳转。
+本项目的完整思路链路是：**策略 → 想法 → 怎么做 → 计划 → 技术 → 商业 → 验证 → 调优闭环**。做产品先想清楚方向和能不能赚钱，再定义问题、落地技术，最后持续验证调优。每个阶段都有对应文档，评委可按需直接跳转。
 
 ```
+明确市场方向（先看市场，再定产品）
+  └─ product-strategy.md          ← 策略：竞品分析、差异化定位、TAM $3.6亿、GTM 冷启动
+       ↓
 发现痛点，定义产品
-  └─ pr-review-prd-final.md       ← 想法：问题是什么、为谁做、做什么
+  └─ pr-review-prd-final.md       ← 想法：用户画像（Vibe Coder）、四层能力缺口、做什么
        ↓
 设计实现方案
   └─ engineering-spec.md          ← 怎么做：架构选型、Prompt 策略、Sprint 拆分
@@ -36,14 +39,11 @@
 规划交付节奏
   └─ roadmap.md                   ← 计划：12周路线图、Epic 优先级、里程碑
        ↓
-明确市场方向
-  └─ product-strategy.md          ← 策略：竞品分析、差异化定位、GTM 冷启动
-       ↓
 落地技术细节
   └─ SYSTEM_DESIGN.md             ← 技术：模型选择、上下文获取、误报控制、扩展方向
        ↓
-验证商业可行性
-  └─ BUSINESS_ANALYSIS.md         ← 商业：成本结构、盈亏平衡、LTV/CAC、12个月预测
+验证商业可行性（能不能赚钱）
+  └─ BUSINESS_ANALYSIS.md         ← 商业：LTV/CAC >7x、盈亏平衡仅需5用户、12个月预测
        ↓
 系统性评测效果
   └─ eval/EVAL_REPORT.md          ← 验证：100用例、修复前65% → 修复后78%、归因分析
@@ -54,14 +54,54 @@
 
 | 阶段 | 文档 | 核心内容 |
 |------|------|---------|
+| **策略** | [product-strategy.md](product-strategy.md) | 竞品全景分析、差异化定位图、GTM 冷启动策略、PLG 增长飞轮设计 |
 | **想法** | [pr-review-prd-final.md](pr-review-prd-final.md) | 用户画像（Vibe Coder）、四层能力缺口、用户故事与验收标准、成功指标 |
 | **怎么做** | [engineering-spec.md](engineering-spec.md) | Sprint 计划、技术选型决策、双层模型 Prompt 策略设计 |
 | **计划** | [roadmap.md](roadmap.md) | 12周发布路线图：Alpha → Beta → v1.0，12个 Epic 优先级矩阵与里程碑 |
-| **策略** | [product-strategy.md](product-strategy.md) | 竞品全景分析、差异化定位图、GTM 冷启动策略、PLG 增长飞轮设计 |
 | **技术** | [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | **（竞赛硬性要求）** 模型选择理由、上下文获取优先级、误报控制机制、未来扩展方向 |
-| **商业** | [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md) | TAM $3.6亿、单次成本 $0.02–0.05、LTV/CAC >7x、12个月财务预测、Go/No-Go 判断 |
+| **商业** | [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md) | TAM $3.6亿、单次成本 $0.02–0.05、LTV/CAC >7x、**盈亏平衡仅需5个付费用户**、12个月财务预测 |
 | **验证** | [eval/EVAL_REPORT.md](eval/EVAL_REPORT.md) | 100用例评测：修复前 65% → 修复后 **78%**，误报/漏报完整归因（4类根因）与错误数据集 |
 | **调优闭环** | [tuning/analyze.py](tuning/analyze.py) | 自动检测持续性错误、退化/改进对比、生成具体 Prompt 修改建议，跑完 eval 自动写入 |
+
+---
+
+## 💰 商业价值
+
+> **结论：商业上可行，但窗口期有限（12–18个月）。** 详见 [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md)
+
+### 市场规模
+
+```
+全球 GitHub 活跃用户                    ~1亿
+├── 使用 AI 辅助编程（2026年）          ~30%  → 3,000万 AI 开发者
+└── 符合 Vibe Coder 画像（入门-中级）   ~20%  → 600万 目标用户
+
+TAM = 600万用户 × $60/年 = 3.6亿美元/年
+SAM = 3.6亿 × 15%       = 5,400万美元/年（独立开发者+小团队）
+SOM = 1,000付费用户 × $9/月 = 108,000美元/年（Year 1）
+```
+
+### 单位经济
+
+| 指标 | 数值 | 说明 |
+|------|------|------|
+| 单次分析成本 | $0.02–0.05 | Haiku+Sonnet双层，实测数据 |
+| Pro 定价 | $9/月（100次）| 对比锚点：一杯咖啡换一个月专业 Review |
+| 毛利率 | 44%–78% | 用户每月100次，成本约$2–5 |
+| **盈亏平衡** | **仅需5个付费用户** | 服务器固定成本$30/月，门槛极低 |
+| LTV/CAC | >7x | CAC约$8–15，LTV约$108（12个月留存）|
+| Payback Period | 约1个月 | CAC ≤ 1个月ARPU，资金效率极高 |
+
+### 增长飞轮
+
+每次 Bot 评论出现在公开 PR → **零成本品牌曝光** → 新用户访问 → 转化付费 → 更多反馈数据 → 准确率提升 → 更多用户推荐。这是工具类 SaaS 的典型 PLG（产品驱动增长）模型，获客成本趋近于零。
+
+### Go/No-Go 判断
+
+**✅ Go** — 三个核心理由：
+1. **市场时机恰好**：Vibe Coding 爆发期，Review 工具生态仍空白
+2. **单位经济健康**：LTV/CAC >7x，5个付费用户即回本
+3. **技术已验证**：MVP 完成，安全漏洞检测率 83%，真实PR测试准确率 89%
 
 ---
 
