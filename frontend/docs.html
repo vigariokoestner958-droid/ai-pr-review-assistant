@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>X-Reviewer — API 文档</title>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Manrope:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Manrope',sans-serif;background:#F5F0E8;color:#3C1518}
+  nav{background:#3C1518;padding:0 48px;height:56px;display:flex;align-items:center;justify-content:space-between}
+  .nav-title{font-family:'EB Garamond',serif;font-size:20px;color:#F5F0E8}
+  .nav-links a{color:#F5F0E8;font-size:13px;text-decoration:none;margin-left:24px;opacity:.7}
+  .nav-links a:hover{opacity:1}
+  main{max-width:900px;margin:0 auto;padding:48px 24px}
+  h1{font-family:'EB Garamond',serif;font-size:36px;margin-bottom:8px}
+  .subtitle{color:#8B7E74;font-size:15px;margin-bottom:40px}
+  .endpoint{background:#fff;border:1px solid #D6CFC4;padding:24px;margin-bottom:16px}
+  .endpoint:hover{border-color:#3C1518}
+  .method{display:inline-block;padding:3px 10px;font-size:12px;font-weight:700;color:#fff;margin-right:12px;font-family:'JetBrains Mono',monospace}
+  .post{background:#3C1518}
+  .get{background:#3D7A4A}
+  .path{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600}
+  .desc{font-size:14px;color:#8B7E74;margin-top:8px}
+  .params{margin-top:16px}
+  .params h4{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8B7E74;margin-bottom:8px}
+  .param-row{display:flex;gap:12px;font-size:13px;padding:6px 0;border-bottom:1px solid #EDE8DE}
+  .param-name{font-family:'JetBrains Mono',monospace;color:#A44A3F;min-width:160px}
+  .param-type{color:#8B7E74;min-width:80px}
+  .example{margin-top:16px}
+  .example h4{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8B7E74;margin-bottom:8px}
+  pre{background:#F5F0E8;border:1px solid #D6CFC4;padding:16px;font-size:12px;font-family:'JetBrains Mono',monospace;overflow-x:auto;line-height:1.6}
+  .swagger-link{display:inline-block;margin-top:32px;padding:12px 24px;background:#3C1518;color:#F5F0E8;text-decoration:none;font-size:14px}
+  .swagger-link:hover{opacity:.85}
+  .section-title{font-family:'EB Garamond',serif;font-size:22px;margin:40px 0 16px}
+</style>
+</head>
+<body>
+<nav>
+  <span class="nav-title">X-Reviewer — API 文档</span>
+  <div class="nav-links">
+    <a href="/">← 返回主页</a>
+    <a href="/stats">监控看板</a>
+    <a href="/docs" target="_blank">Swagger UI</a>
+  </div>
+</nav>
+<main>
+  <h1>X-Reviewer API</h1>
+  <p class="subtitle">AI PR 代码审查服务接口文档 · Base URL: <code style="font-family:monospace">http://localhost:8001</code></p>
+
+  <div class="section-title">核心接口</div>
+
+  <div class="endpoint">
+    <div>
+      <span class="method post">POST</span>
+      <span class="path">/analyze</span>
+    </div>
+    <div class="desc">分析一个 GitHub PR，返回风险列表、评分和审查意见。</div>
+    <div class="params">
+      <h4>请求体（JSON）</h4>
+      <div class="param-row"><span class="param-name">pr_url</span><span class="param-type">string</span><span>GitHub PR 地址，例如 https://github.com/owner/repo/pull/1</span></div>
+    </div>
+    <div class="example">
+      <h4>请求示例</h4>
+      <pre>curl -X POST http://localhost:8001/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"pr_url": "https://github.com/owner/repo/pull/1"}'</pre>
+      <h4 style="margin-top:12px">响应示例</h4>
+      <pre>{
+  "summary": {
+    "what_changed": "新增用户登录功能",
+    "change_type": "feature",
+    "core_change": "添加了 JWT 认证逻辑",
+    "affected_modules": ["auth", "api"]
+  },
+  "risks": [
+    {
+      "severity": "HIGH",
+      "category": "SECURITY",
+      "file": "auth.py",
+      "line": 42,
+      "title": "密码明文存储",
+      "description": "密码直接存成明文，数据库泄露后所有密码都会暴露",
+      "why_it_matters": "...",
+      "suggestion": "改用 bcrypt 加密存储",
+      "suggestion_code": "hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())"
+    }
+  ],
+  "verdict": "REQUEST_CHANGES",
+  "overall_score": 4,
+  "quick_wins": ["给所有接口加速率限制", "补充单元测试"]
+}</pre>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div>
+      <span class="method post">POST</span>
+      <span class="path">/feedback</span>
+    </div>
+    <div class="desc">提交用户反馈（有帮助 / 没帮助），用于监控有帮助率指标。</div>
+    <div class="params">
+      <h4>请求体（JSON）</h4>
+      <div class="param-row"><span class="param-name">pr_url</span><span class="param-type">string</span><span>被分析的 PR 地址</span></div>
+      <div class="param-row"><span class="param-name">vote</span><span class="param-type">string</span><span><code>up</code> 或 <code>down</code></span></div>
+      <div class="param-row"><span class="param-name">comment</span><span class="param-type">string?</span><span>可选，补充说明</span></div>
+    </div>
+  </div>
+
+  <div class="section-title">监控接口</div>
+
+  <div class="endpoint">
+    <div>
+      <span class="method get">GET</span>
+      <span class="path">/api/metrics</span>
+    </div>
+    <div class="desc">返回过去 7 天的监控数据（JSON），包含 KPI、告警、趋势、评分分布和最近记录。</div>
+    <div class="example">
+      <h4>请求示例</h4>
+      <pre>curl http://localhost:8001/api/metrics</pre>
+    </div>
+  </div>
+
+  <div class="endpoint">
+    <div>
+      <span class="method get">GET</span>
+      <span class="path">/stats</span>
+    </div>
+    <div class="desc">监控看板页面（HTML），可视化展示所有监控指标。</div>
+  </div>
+
+  <div class="endpoint">
+    <div>
+      <span class="method get">GET</span>
+      <span class="path">/health</span>
+    </div>
+    <div class="desc">健康检查接口，返回 <code>{"status": "ok"}</code>。</div>
+  </div>
+
+  <a class="swagger-link" href="/docs" target="_blank">打开 Swagger UI（可交互测试）→</a>
+</main>
+</body>
+</html>

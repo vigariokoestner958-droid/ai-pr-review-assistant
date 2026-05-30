@@ -2,7 +2,8 @@
 import os
 import time
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+CST = timezone(timedelta(hours=8))
 from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
@@ -148,8 +149,26 @@ async def analyze(req: AnalyzeRequest):
 
 # ── Feedback endpoint ─────────────────────────────────────────────────────────
 
+class FeedbackRequest(BaseModel):
+    pr_url: str
+    vote: str
+    comment: str = ""
+
+@app.post("/feedback")
+def feedback(req: FeedbackRequest):
+    if req.vote not in ("up", "down"):
+        raise HTTPException(400, "vote must be 'up' or 'down'")
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO feedback (pr_url, vote, created_at) VALUES (?, ?, ?)",
+        (req.pr_url, req.vote, datetime.now(CST).strftime('%Y-%m-%dT%H:%M:%S')),
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "vote": req.vote}
+
 @app.get("/feedback")
-def feedback(
+def feedback_get(
     pr: str = Query(..., description="GitHub PR URL"),
     vote: str = Query(..., description="up or down"),
 ):
@@ -158,7 +177,7 @@ def feedback(
     conn = sqlite3.connect(DB_PATH)
     conn.execute(
         "INSERT INTO feedback (pr_url, vote, created_at) VALUES (?, ?, ?)",
-        (pr, vote, datetime.utcnow().isoformat()),
+        (pr, vote, datetime.now(CST).strftime('%Y-%m-%dT%H:%M:%S')),
     )
     conn.commit()
     conn.close()
@@ -184,6 +203,7 @@ def metrics_api(days: int = Query(7, ge=1, le=90)):
     alerts  = check_alerts(summary)
     trend   = get_daily_trend(days)
     scores  = get_score_distribution()
+    recent  = get_recent_analyses(limit=15)
     return JSONResponse({
         "summary": summary,
         "alerts": [
@@ -193,6 +213,7 @@ def metrics_api(days: int = Query(7, ge=1, le=90)):
         ],
         "daily_trend": trend,
         "score_distribution": scores,
+        "recent": recent,
     })
 
 
@@ -455,3 +476,11 @@ if frontend_dir.exists():
     @app.get("/")
     def root():
         return FileResponse(str(frontend_dir / "index.html"))
+
+    @app.get("/stats-page")
+    def stats_page():
+        return FileResponse(str(frontend_dir / "stats.html"))
+
+    @app.get("/api-docs")
+    def api_docs_page():
+        return FileResponse(str(frontend_dir / "docs.html"))

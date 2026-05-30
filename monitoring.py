@@ -13,8 +13,16 @@
 
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+CST = timezone(timedelta(hours=8))   # 北京时间 UTC+8
+
+def _now_cst() -> str:
+    return datetime.now(CST).strftime('%Y-%m-%dT%H:%M:%S')
+
+def _since_cst(days: int) -> str:
+    return (datetime.now(CST) - timedelta(days=days)).strftime('%Y-%m-%dT%H:%M:%S')
 from dataclasses import dataclass
 from typing import Optional
 
@@ -97,7 +105,7 @@ def record_analysis(
             pr_url, pr_title, verdict, overall_score,
             high_count, med_count, low_count, latency_ms,
             int(skipped), error,
-            datetime.utcnow().isoformat(),
+            _now_cst(),
         ),
     )
     conn.commit()
@@ -114,7 +122,7 @@ def _conn():
 
 def get_summary(days: int = 7) -> dict:
     """返回最近N天的汇总指标。"""
-    since = (datetime.utcnow() - timedelta(days=days)).isoformat()
+    since = _since_cst(days)
     conn = _conn()
 
     total_row = conn.execute(
@@ -203,7 +211,7 @@ def get_daily_trend(days: int = 14) -> list[dict]:
         WHERE created_at >= ?
         GROUP BY day
         ORDER BY day
-    """, ((datetime.utcnow() - timedelta(days=days)).isoformat(),)).fetchall()
+    """, (_since_cst(days),)).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 

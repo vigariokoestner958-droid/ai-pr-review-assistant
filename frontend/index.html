@@ -452,11 +452,57 @@ h1, h2, h3 { margin: 0; }
 .copy-btn.copied { color: var(--success); }
 .preview-content {
   background: var(--bg); border-radius: 16px;
-  box-shadow: var(--sh-inset-deep); padding: 20px;
-  font-family: var(--font-m); font-size: 13px; color: var(--fg);
-  line-height: 1.6; max-height: 360px; overflow-y: auto;
-  white-space: pre-wrap; word-break: break-word;
+  box-shadow: var(--sh-inset-deep); padding: 24px 28px;
+  font-family: var(--font-b); font-size: 15px; color: var(--fg);
+  line-height: 1.7; max-height: 480px; overflow-y: auto;
 }
+/* Markdown rendered inside preview */
+.prev-h2 { font-family: var(--font-d); font-size: 18px; font-weight: 700; margin: 0 0 10px; }
+.prev-p  { margin: 4px 0; font-size: 15px; }
+.prev-bq {
+  border-left: 3px solid var(--accent); padding: 8px 14px; margin: 8px 0;
+  background: rgba(108,99,255,.06); border-radius: 0 8px 8px 0;
+  font-size: 14px; color: var(--fg);
+}
+.prev-bq-sm { border-color: var(--success); margin-left: 12px; font-size: 13px; }
+.prev-ul { margin: 6px 0 6px 0; padding: 0; list-style: none; }
+.prev-ul li { display: flex; gap: 8px; padding: 5px 0; font-size: 15px; border-bottom: 1px solid rgba(163,177,198,.2); }
+.prev-ul li:last-child { border-bottom: none; }
+.prev-ul li::before { content: '›'; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.prev-ic {
+  background: rgba(108,99,255,.1); color: var(--accent);
+  padding: 1px 6px; border-radius: 5px;
+  font-family: var(--font-m); font-size: 13px;
+}
+.prev-code {
+  background: var(--code-bg); color: var(--code-fg); border-radius: 10px;
+  padding: 14px 16px; margin: 10px 0; overflow-x: auto;
+  font-family: var(--font-m); font-size: 13px; line-height: 1.5;
+}
+.prev-hr { border: 0; border-top: 1px solid rgba(163,177,198,.4); margin: 12px 0; }
+.prev-gap { height: 8px; }
+.prev-code code { font-family: var(--font-m); }
+/* Feedback bar */
+.feedback-bar {
+  background: var(--bg); border-radius: 32px; padding: 28px 32px;
+  box-shadow: var(--sh-raised); margin-bottom: 24px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+}
+.fb-label { font-size: 15px; font-weight: 500; color: var(--fg); flex-shrink: 0; }
+.fb-btns  { display: flex; gap: 12px; }
+.fb-btn {
+  height: 44px; padding: 0 24px; border-radius: 16px;
+  font-size: 15px; font-weight: 600;
+  box-shadow: var(--sh-raised-sm); transition: all var(--ease);
+}
+.fb-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--sh-raised); }
+.fb-btn:active:not(:disabled) { box-shadow: var(--sh-inset-sm); transform: translateY(.5px); }
+.fb-btn:disabled { opacity: .5; cursor: default; }
+.fb-up   { color: var(--success); }
+.fb-down { color: var(--danger); }
+.fb-up.selected   { background: var(--success); color: #fff; box-shadow: var(--sh-inset-sm); }
+.fb-down.selected { background: var(--danger);  color: #fff; box-shadow: var(--sh-inset-sm); }
+.fb-thanks { font-size: 14px; color: var(--muted); margin-left: 4px; }
 
 /* History */
 .history-section { padding-bottom: 64px; }
@@ -748,6 +794,16 @@ footer {
     <div class="quick-section" id="quick-section">
       <div class="card-title">快速改进建议</div>
       <div class="quick-list" id="quick-list"></div>
+    </div>
+
+    <!-- Feedback -->
+    <div class="feedback-bar" id="feedback-bar">
+      <span class="fb-label">这次分析对你有帮助吗？</span>
+      <div class="fb-btns">
+        <button class="fb-btn fb-up"   id="fb-up">👍 有帮助</button>
+        <button class="fb-btn fb-down" id="fb-down">👎 不准确</button>
+      </div>
+      <span class="fb-thanks hidden" id="fb-thanks"></span>
     </div>
 
     <!-- GitHub comment preview -->
@@ -1112,8 +1168,16 @@ function renderResult(r) {
     ql.appendChild(item);
   });
 
-  // Comment preview
-  $('preview-content').textContent = r.github_comment;
+  // Comment preview — render markdown as HTML
+  $('preview-content').innerHTML = renderMarkdown(r.github_comment || '');
+
+  // Reset feedback state
+  $('fb-up').disabled   = false;
+  $('fb-down').disabled = false;
+  $('fb-up').classList.remove('selected');
+  $('fb-down').classList.remove('selected');
+  $('fb-thanks').textContent = '';
+  $('fb-thanks').classList.add('hidden');
 }
 
 function buildRiskCard(risk, defaultOpen) {
@@ -1282,6 +1346,112 @@ function escHtml(s) {
 function escAttr(s) {
   return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+
+/* ── Markdown Renderer ───────────────────────────────────────────────────── */
+function inline(text) {
+  // Preserve HTML entities like &nbsp;
+  const preserved = [];
+  text = text.replace(/&[a-z]+;/g, m => { preserved.push(m); return `\x00${preserved.length-1}\x00`; });
+  text = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  text = text.replace(/\x00(\d+)\x00/g, (_, i) => preserved[+i]);
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  text = text.replace(/`([^`\n]+)`/g, '<code class="prev-ic">$1</code>');
+  return text;
+}
+
+function renderMarkdown(md) {
+  const lines = md.split('\n');
+  let html = '';
+  let inCode = false;
+  let codeLines = [];
+  let listItems = [];
+
+  function flushList() {
+    if (!listItems.length) return;
+    html += '<ul class="prev-ul">' + listItems.join('') + '</ul>';
+    listItems = [];
+  }
+
+  for (const line of lines) {
+    // Code block fence
+    if (/^\s*```/.test(line)) {
+      flushList();
+      if (!inCode) { inCode = true; codeLines = []; }
+      else {
+        inCode = false;
+        html += `<pre class="prev-code"><code>${escHtml(codeLines.join('\n'))}</code></pre>`;
+      }
+      continue;
+    }
+    if (inCode) { codeLines.push(line); continue; }
+
+    // H2
+    if (line.startsWith('## ')) {
+      flushList();
+      html += `<div class="prev-h2">${inline(line.slice(3))}</div>`;
+      continue;
+    }
+    // HR
+    if (/^---+$/.test(line.trim())) {
+      flushList(); html += '<hr class="prev-hr">'; continue;
+    }
+    // Indented blockquote (suggestion line)
+    if (/^\s{2,}>\s/.test(line)) {
+      flushList();
+      html += `<div class="prev-bq prev-bq-sm">${inline(line.replace(/^\s+>\s/,''))}</div>`;
+      continue;
+    }
+    // Blockquote
+    if (line.startsWith('> ')) {
+      flushList();
+      html += `<div class="prev-bq">${inline(line.slice(2))}</div>`;
+      continue;
+    }
+    // List item
+    if (/^[-*] /.test(line)) {
+      listItems.push(`<li>${inline(line.slice(2))}</li>`); continue;
+    }
+    // Empty line
+    if (!line.trim()) {
+      flushList(); html += '<div class="prev-gap"></div>'; continue;
+    }
+    // Default
+    flushList();
+    html += `<div class="prev-p">${inline(line)}</div>`;
+  }
+  flushList();
+  return html;
+}
+
+/* ── Feedback ────────────────────────────────────────────────────────────── */
+function submitFeedback(vote) {
+  const prUrl = currentResult && currentResult.pr_url;
+  if (!prUrl) return;
+
+  $('fb-up').disabled   = true;
+  $('fb-down').disabled = true;
+  $('fb-' + vote).classList.add('selected');
+
+  fetch('/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pr_url: prUrl, vote }),
+  })
+  .then(() => {
+    const t = $('fb-thanks');
+    t.textContent = vote === 'up' ? '感谢反馈！已记录 👍' : '感谢反馈！我们会持续改进 👊';
+    t.classList.remove('hidden');
+  })
+  .catch(() => {
+    $('fb-up').disabled   = false;
+    $('fb-down').disabled = false;
+    $('fb-' + vote).classList.remove('selected');
+  });
+}
+
+$('fb-up').addEventListener('click',   () => submitFeedback('up'));
+$('fb-down').addEventListener('click', () => submitFeedback('down'));
 
 /* ── Init ────────────────────────────────────────────────────────────────── */
 setState('empty');
