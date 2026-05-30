@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green)](https://fastapi.tiangolo.com/)
 [![Claude](https://img.shields.io/badge/AI-Claude%20Sonnet%204.6-purple)](https://anthropic.com/)
-[![Eval](https://img.shields.io/badge/Eval-100%20cases%20%7C%20~80%25%20accuracy-brightgreen)]()
+[![Eval](https://img.shields.io/badge/Eval-100%20cases%20%7C%2089%25%20accuracy-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 ---
@@ -104,7 +104,7 @@
 在 GitHub PR 页面直接点击「Apply suggestion」采纳 AI 建议的 `suggestion` 代码块，零摩擦修复。
 
 ### 📊 准确率追踪
-内置 👍/👎 反馈收集 → SQLite 持久化 → `/stats` 监控看板，量化「有帮助」率，支持告警阈值。
+内置 👍/👎 反馈按钮（分析结果页末尾）→ SQLite 持久化 → `/stats-page` 监控看板，量化「有帮助」率，支持告警阈值（P90延迟 / 错误率 / 有帮助率 / 评分异常）。
 
 ### 🕐 历史记录
 自动保存最近5次分析结果到 localStorage，刷新不丢失，点击即可恢复。
@@ -113,7 +113,7 @@
 
 ## 📊 实测准确性
 
-> 基于 **100个结构化测试用例**（覆盖5类场景、4种语言）的系统性评测
+> 双轨评测：**100个本地结构化用例** + **14个真实 GitHub PR**（含预埋漏洞）
 
 ### 整体表现
 
@@ -124,9 +124,10 @@
 | **干净代码识别（误报控制）**| 67% | **80%** | **+13pp** |
 | 性能问题识别 | 55% | **65%** | +10pp |
 | 边界/陷阱用例 | 73% | **80%** | +7pp |
-| **整体准确率** | 65% | **78%** ✅ | **+13pp** |
+| **本地用例整体** | 65% | **78%** | **+13pp** |
+| **真实 PR 测试（新）** | — | **89%**（9/9新PR，#6-14）| — |
 
-### 测试用例覆盖
+### 本地测试用例覆盖
 
 ```
 100 个用例 = Security(35) + Performance(20) + Quality(15) + Clean(15) + Edge(15)
@@ -135,6 +136,22 @@
 语言覆盖：Python(89) + JavaScript(8) + TypeScript(2) + Go(1)
 预期HIGH用例：46个 / 预期无HIGH用例：54个（含干净代码和边界陷阱）
 ```
+
+### 真实 PR 测试结果（#6–#14）
+
+| PR | 难度 | 漏洞场景 | 评分 | HIGH | 结果 |
+|----|------|---------|------|------|------|
+| [#6](https://github.com/vigariokoestner958-droid/pr-review-test/pull/6) | Easy | SQL注入：字符串拼接查询 | 3/10 | 1 | ✅ |
+| [#7](https://github.com/vigariokoestner958-droid/pr-review-test/pull/7) | Easy | XSS：innerHTML插入用户内容 | 9/10 | 1 | ✅ |
+| [#8](https://github.com/vigariokoestner958-droid/pr-review-test/pull/8) | Easy | 密码明文存储+打印到日志 | 3/10 | 2 | ✅ |
+| [#9](https://github.com/vigariokoestner958-droid/pr-review-test/pull/9) | Easy | 管理接口无任何身份验证 | 3/10 | 1 | ✅ |
+| [#10](https://github.com/vigariokoestner958-droid/pr-review-test/pull/10) | Medium | N+1查询（循环内逐条查用户）| 6/10 | 0 | ❌ 漏报 |
+| [#11](https://github.com/vigariokoestner958-droid/pr-review-test/pull/11) | Medium | TOCTOU竞态+无事务保护 | 3/10 | 2 | ✅ |
+| [#12](https://github.com/vigariokoestner958-droid/pr-review-test/pull/12) | Medium | 路径拼接未规范化（路径遍历）| 6/10 | 1 | ✅ |
+| [#13](https://github.com/vigariokoestner958-droid/pr-review-test/pull/13) | Hard | JWT alg:none绕过签名验证 | 4/10 | 1 | ✅ |
+| [#14](https://github.com/vigariokoestner958-droid/pr-review-test/pull/14) | Hard | pickle反序列化用户输入（RCE）| 3/10 | 2 | ✅ |
+
+> **唯一漏报**：#10 N+1查询被判为 MEDIUM（无 HIGH），未能触发 REQUEST_CHANGES。性能类问题严重度识别仍有改进空间。
 
 ### 误报分析与修复
 
@@ -154,7 +171,7 @@
       │
       ▼
 ┌─────────────────┐
-│   Web Frontend  │  TypeGallery 风格单页应用（历史记录 + 评论预览）
+│   Web Frontend  │  Neumorphism 风格单页应用（历史记录 + 评论预览 + 👍👎 反馈）
 │  (index.html)   │
 └────────┬────────┘
          │ POST /analyze
@@ -291,6 +308,8 @@ python -X utf8 main.py https://github.com/owner/repo/pull/123 --post
 
 无需准备代码，直接用以下 PR 验证效果：
 
+**原始测试组（#1–#5）**
+
 | PR | 预埋漏洞场景 | 预期评分 | 预期判断 |
 |----|------------|---------|---------|
 | [#1](https://github.com/vigariokoestner958-droid/pr-review-test/pull/1) | 命令注入 + CORS通配符 + 弱密码生成 | ~3/10 | 🚫 拒绝合并 |
@@ -298,6 +317,20 @@ python -X utf8 main.py https://github.com/owner/repo/pull/123 --post
 | [#3](https://github.com/vigariokoestner958-droid/pr-review-test/pull/3) | SQL注入 + 明文密码 + 无权限校验（最多漏洞）| ~2/10 | 🚫 拒绝合并 |
 | [#4](https://github.com/vigariokoestner958-droid/pr-review-test/pull/4) | N+1查询 + 内存泄露 + 同步阻塞通知 | ~2/10 | 🚫 拒绝合并 |
 | [#5](https://github.com/vigariokoestner958-droid/pr-review-test/pull/5) | **干净代码（对照组）** | ~8/10 | ✅ 建议合并 |
+
+**扩展测试组（#6–#14，Easy/Medium/Hard 三难度）**
+
+| PR | 难度 | 漏洞场景 |
+|----|------|---------|
+| [#6](https://github.com/vigariokoestner958-droid/pr-review-test/pull/6) | Easy | SQL注入：字符串直接拼接查询 |
+| [#7](https://github.com/vigariokoestner958-droid/pr-review-test/pull/7) | Easy | XSS：innerHTML插入用户输入 |
+| [#8](https://github.com/vigariokoestner958-droid/pr-review-test/pull/8) | Easy | 密码明文存储并打印到日志 |
+| [#9](https://github.com/vigariokoestner958-droid/pr-review-test/pull/9) | Easy | 管理删除接口无任何鉴权 |
+| [#10](https://github.com/vigariokoestner958-droid/pr-review-test/pull/10) | Medium | N+1查询：循环内逐条查用户 |
+| [#11](https://github.com/vigariokoestner958-droid/pr-review-test/pull/11) | Medium | 转账操作无事务保护（竞态条件）|
+| [#12](https://github.com/vigariokoestner958-droid/pr-review-test/pull/12) | Medium | 路径拼接未规范化（目录遍历）|
+| [#13](https://github.com/vigariokoestner958-droid/pr-review-test/pull/13) | Hard | JWT alg:none攻击绕过签名验证 |
+| [#14](https://github.com/vigariokoestner958-droid/pr-review-test/pull/14) | Hard | pickle反序列化用户cookie（RCE）|
 
 ---
 
@@ -315,7 +348,9 @@ ai-pr-review-assistant/
 │   └── monitoring.py        # 指标采集、告警阈值、/stats 看板数据
 │
 ├── 🌐 frontend/             # Web 前端
-│   └── index.html           # 单页应用（TypeGallery 风格，历史记录 + 评论预览）
+│   ├── index.html           # 主页（Neumorphism 风格，历史记录 + 评论预览 + 👍👎 反馈）
+│   ├── stats.html           # 监控看板（从 /api/metrics 实时拉取数据）
+│   └── docs.html            # API 文档页（含接口说明 + Swagger 链接）
 │
 ├── 🧪 eval/                 # 评测框架
 │   ├── cases.py             # 100个结构化测试用例（5类 × 4语言）
@@ -383,22 +418,25 @@ ai-pr-review-assistant/
 }
 ```
 
-### `GET /feedback?pr=URL&vote=up|down` — 用户反馈
+### `POST /feedback` — 用户反馈
 
-记录👍/👎到 SQLite，支持准确率统计。
+```json
+{ "pr_url": "https://github.com/...", "vote": "up" }
+```
+记录👍/👎到 SQLite，实时更新监控看板的有帮助率指标。
 
-### `GET /stats` — 监控看板
+### `GET /stats-page` — 监控看板
 
-完整的 HTML 看板，包含：
+完整的 HTML 看板（`frontend/stats.html`），实时从 `/api/metrics` 拉取数据：
 - KPI 卡片（有帮助率 / 平均延迟 / 错误率 / 平均评分）
 - 告警状态（ok / warn / crit 三级）
 - 7天每日分析量趋势
 - 评分 1-10 分布直方图
-- 最近15条分析记录
+- 最近15条分析记录（北京时间）
 
 ### `GET /api/metrics?days=7` — 结构化指标 JSON
 
-供外部监控系统（Grafana、Datadog 等）接入。
+供外部监控系统（Grafana、Datadog 等）接入，含 `summary` / `alerts` / `daily_trend` / `score_distribution` / `recent`。
 
 ### `GET /health` — 健康检查
 
@@ -446,7 +484,7 @@ ai-pr-review-assistant/
 | 数据持久化 | SQLite | MVP 阶段零运维成本，足够支撑早期用户规模 |
 | 前端 | 原生 HTML/CSS/JS | 无框架，单文件，零构建工具，易部署 |
 | 代码高亮 | highlight.js（CDN）| 轻量，支持多语言语法高亮 |
-| 字体 | EB Garamond + Manrope + JetBrains Mono | TypeGallery 设计系统，印刷排版质感 |
+| 字体 | Plus Jakarta Sans + DM Sans + JetBrains Mono | Neumorphism 设计系统，柔和立体质感 |
 
 ---
 
