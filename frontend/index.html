@@ -1,1599 +1,1291 @@
 <!doctype html>
-<html lang="zh-CN"><head><script data-od-sandbox-shim="">(function(){
-  function makeStore(){
-    var data = {};
-    var api = {
-      getItem: function(k){ return Object.prototype.hasOwnProperty.call(data, k) ? data[k] : null; },
-      setItem: function(k, v){ data[k] = String(v); },
-      removeItem: function(k){ delete data[k]; },
-      clear: function(){ data = {}; },
-      key: function(i){ return Object.keys(data)[i] || null; }
-    };
-    Object.defineProperty(api, 'length', { get: function(){ return Object.keys(data).length; } });
-    return api;
-  }
-  function tryShim(name){
-    var works = false;
-    try { works = !!window[name] && typeof window[name].getItem === 'function'; void window[name].length; }
-    catch (_) { works = false; }
-    if (works) return;
-    try { Object.defineProperty(window, name, { configurable: true, value: makeStore() }); }
-    catch (_) { try { window[name] = makeStore(); } catch (__) {} }
-  }
-  tryShim('localStorage');
-  tryShim('sessionStorage');
-  document.addEventListener('click', (e) => {
-    if (!e.target || !(e.target instanceof Element)) return;
-    var link = e.target.closest('a[href]');
-    if (!link) return;
-    var href = link.getAttribute('href');
-    if (href === null) return;
-    var isAnchor = href.startsWith('#') || href === '';
-    if (isAnchor) {
-      e.preventDefault();
-      if (href === '' || href === '#') {
-        window.scrollTo({ top: 0 });
-        history.replaceState(null, '', ' ');
-      } else {
-        var targetId = href.slice(1);
-        var target = targetId ? document.getElementById(targetId) : null;
-        if (target) {
-          target.scrollIntoView();
-          location.hash === href && history.replaceState(null, '', ' ');
-          location.hash = href;
-        }
-      }
-    } else if (link.getAttribute('target') === '_blank') {
-      e.preventDefault();
-      let safe = false;
-      try {
-        var url = new URL(href, location.href);
-        safe =
-          url.protocol === 'http:' ||
-          url.protocol === 'https:' ||
-          url.protocol === 'mailto:';
-      } catch (_) {}
-      safe && window.open(href, '_blank', 'noopener,noreferrer');
-    }
-  });
-})();</script>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>X-Reviewer — 为 Vibe Coder 设计的代码审查助手</title>
-<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;1,400&amp;family=Manrope:wght@300;400;500&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X-Reviewer · AI 代码审查工具</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>
-/* ── Reset ─────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; }
+/* ── Tokens ───────────────────────────────────────────────────────────── */
+:root {
+  --bg:            #E0E5EC;
+  --fg:            #3D4852;
+  --muted:         #6B7280;
+  --accent:        #6C63FF;
+  --accent-lt:     #8B84FF;
+  --success:       #38B2AC;
+  --warning:       #D97706;
+  --danger:        #E53E3E;
+  --placeholder:   #A0AEC0;
+  --code-bg:       #2D3748;
+  --code-fg:       #E2E8F0;
+  --white:         rgba(255,255,255,1);
+
+  --sh-raised:     9px 9px 16px rgba(163,177,198,.6), -9px -9px 16px rgba(255,255,255,.5);
+  --sh-raised-hov: 12px 12px 20px rgba(163,177,198,.7), -12px -12px 20px rgba(255,255,255,.6);
+  --sh-raised-sm:  5px 5px 10px rgba(163,177,198,.6), -5px -5px 10px rgba(255,255,255,.5);
+  --sh-inset:      inset 6px 6px 10px rgba(163,177,198,.6), inset -6px -6px 10px rgba(255,255,255,.5);
+  --sh-inset-deep: inset 10px 10px 20px rgba(163,177,198,.7), inset -10px -10px 20px rgba(255,255,255,.6);
+  --sh-inset-sm:   inset 3px 3px 6px rgba(163,177,198,.6), inset -3px -3px 6px rgba(255,255,255,.5);
+  --sh-nav:        0 4px 12px rgba(163,177,198,.4), 0 -2px 6px rgba(255,255,255,.4);
+
+  --font-d: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-b: 'DM Sans', system-ui, sans-serif;
+  --font-m: ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease:   300ms ease-out;
+}
+
+/* ── Reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
-  font-family: 'Manrope', Arial, system-ui, sans-serif;
-  background: #F5F0E8;
-  color: #3C1518;
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-b);
+  font-size: 16px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
+img, svg { display: block; max-width: 100%; }
 a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; border: none; background: none; padding: 0; }
+input { font: inherit; }
+p { margin: 0; }
+h1, h2, h3 { margin: 0; }
 
-/* ── Tokens ─────────────────────────────────────── */
-:root {
-  --primary:   #3C1518;
-  --bg:        #F5F0E8;
-  --accent:    #A44A3F;
-  --warn:      #B45309;
-  --success:   #3D7A4A;
-  --info:      #8B7E74;
-  --border:    #D6CFC4;
-  --surface:   #FFFFFF;
-  --hover-bg:  #EDE8DE;
-  --placeholder: #B5A99A;
-  --font-serif: 'EB Garamond', Georgia, 'Times New Roman', serif;
-  --font-sans:  'Manrope', Arial, system-ui, sans-serif;
-  --font-mono:  'JetBrains Mono', ui-monospace, Menlo, monospace;
+/* ── Layout ───────────────────────────────────────────────────────────── */
+.wrap {
+  max-width: 920px;
+  margin-inline: auto;
+  padding-inline: 24px;
 }
+.hidden { display: none !important; }
+.fade-in { animation: fadeIn .3s ease forwards; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-/* ── Layout helpers ─────────────────────────────── */
-.container {
-  max-width: 840px;
-  margin: 0 auto;
-  padding: 0 24px;
-}
-.divider {
-  width: 100%;
-  height: 1px;
-  background: var(--border);
-  border: none;
-}
-
-/* ── Nav ─────────────────────────────────────────── */
-nav {
-  background: var(--primary);
-  height: 64px;
-  display: flex;
-  align-items: center;
-  padding: 0 72px;
-  gap: 0;
+/* ── Topnav ───────────────────────────────────────────────────────────── */
+.topnav {
   position: sticky;
   top: 0;
   z-index: 100;
+  background: var(--bg);
+  box-shadow: var(--sh-nav);
 }
-.nav-logo {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex: 1;
-}
-.nav-logo-title {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  font-weight: 400;
-  color: #F5F0E8;
-  line-height: 1;
-}
-.nav-logo-sub {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--info);
-  line-height: 1;
-}
-.nav-beta {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--info);
-  border: 1px solid var(--info);
-  padding: 4px 10px;
-  border-radius: 0;
-  line-height: 1;
-  margin-left: 8px;
-  align-self: center;
-}
-.nav-links {
+.topnav-inner {
+  max-width: 920px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  height: 68px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
 }
-.nav-link {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 400;
-  color: #F5F0E8;
-  transition: color 150ms;
-  cursor: pointer;
+.logo-group { display: flex; align-items: center; gap: 10px; }
+.icon-well-nav {
+  width: 40px; height: 40px; border-radius: 16px;
+  box-shadow: var(--sh-inset-deep);
+  display: grid; place-items: center;
+  font-size: 18px; flex-shrink: 0;
 }
-.nav-link:hover { color: var(--accent); }
-.nav-sep {
-  color: var(--info);
-  font-size: 14px;
+.logo-text {
+  font-family: var(--font-d); font-size: 22px; font-weight: 800;
+  color: var(--fg); letter-spacing: -.02em;
 }
+.beta-pill {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 9999px;
+  box-shadow: var(--sh-raised-sm);
+  font-family: var(--font-b); font-size: 11px;
+  font-weight: 500; color: var(--muted); letter-spacing: .06em;
+}
+.nav-links { display: flex; align-items: center; gap: 14px; }
+.nav-links a {
+  font-size: 14px; font-weight: 500; color: var(--muted);
+  transition: color var(--ease);
+}
+.nav-links a:hover { color: var(--accent); }
+.nav-sep { color: var(--placeholder); }
 
-/* ── Input section ──────────────────────────────── */
-.input-section {
-  padding: 96px 0;
-  text-align: center;
-}
+/* ── Input Section ────────────────────────────────────────────────────── */
+.input-section { padding: 64px 0 48px; }
 .input-section h1 {
-  font-family: var(--font-serif);
-  font-size: 36px;
-  font-weight: 500;
-  color: var(--primary);
-  line-height: 1.15;
+  font-family: var(--font-d); font-size: clamp(28px,4vw,36px);
+  font-weight: 800; color: var(--fg);
+  text-align: center; letter-spacing: -.02em; margin-bottom: 12px;
 }
-.input-section .subtitle {
-  font-family: var(--font-sans);
-  font-size: 18px;
-  font-weight: 300;
-  color: var(--info);
-  line-height: 1.75;
-  margin-top: 24px;
+.input-subtitle {
+  font-size: 16px; color: var(--muted);
+  text-align: center; line-height: 1.6;
+  margin: 0 auto; max-width: 400px;
 }
-.input-row {
-  display: flex;
-  gap: 0;
-  margin-top: 48px;
-  align-items: stretch;
+.input-card {
+  max-width: 720px; margin: 40px auto 0;
+  background: var(--bg); border-radius: 32px;
+  padding: 32px; box-shadow: var(--sh-raised);
 }
-.input-row input[type="text"] {
-  flex: 1;
-  height: 48px;
-  border: 1px solid var(--info);
-  border-right: none;
-  border-radius: 0;
-  background: var(--surface);
-  font-family: var(--font-sans);
-  font-size: 16px;
-  color: var(--primary);
-  padding: 0 16px;
-  outline: none;
-  transition: border-color 150ms;
+.input-row { display: flex; gap: 12px; align-items: center; }
+.pr-input {
+  flex: 1; height: 52px; border-radius: 16px; border: none;
+  background: var(--bg); box-shadow: var(--sh-inset);
+  padding: 0 18px; font-size: 16px; color: var(--fg); outline: none;
+  transition: box-shadow var(--ease), outline-color var(--ease);
 }
-.input-row input[type="text"]::placeholder { color: var(--placeholder); }
-.input-row input[type="text"]:hover { border-color: var(--primary); }
-.input-row input[type="text"]:focus { border: 2px solid var(--accent); border-right: none; }
-.btn-primary {
-  height: 48px;
-  padding: 0 32px;
-  background: var(--primary);
-  color: #F5F0E8;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  transition: background 150ms;
+.pr-input::placeholder { color: var(--placeholder); }
+.pr-input:focus {
+  box-shadow: var(--sh-inset-deep);
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.analyze-btn {
+  height: 52px; padding: 0 32px; border-radius: 16px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--accent-lt));
+  color: var(--white); font-family: var(--font-b); font-size: 16px; font-weight: 700;
+  box-shadow: var(--sh-raised);
+  transition: transform var(--ease), box-shadow var(--ease), opacity var(--ease);
   white-space: nowrap;
 }
-.btn-primary:hover:not(:disabled) { background: var(--accent); }
-.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
-.checkbox-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 24px;
-  justify-content: center;
-}
-.checkbox-row input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--info);
-  border-radius: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  cursor: pointer;
-  position: relative;
-  background: var(--surface);
-  flex-shrink: 0;
-}
-.checkbox-row input[type="checkbox"]:checked {
-  background: var(--primary);
-  border-color: var(--primary);
-}
-.checkbox-row input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  top: 3px; left: 5px;
-  width: 5px; height: 9px;
-  border: 2px solid #F5F0E8;
-  border-top: none; border-left: none;
-  transform: rotate(45deg);
-}
-.checkbox-label {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--primary);
-}
-.checkbox-hint {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--info);
-}
+.analyze-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--sh-raised-hov); }
+.analyze-btn:active:not(:disabled) { transform: translateY(.5px); box-shadow: var(--sh-inset-sm); }
+.analyze-btn:disabled { opacity: .5; cursor: not-allowed; }
+.analyze-btn.is-loading { box-shadow: var(--sh-inset); opacity: .7; transform: translateY(.5px); }
 
-/* ── Empty state ────────────────────────────────── */
-.empty-state {
-  border-top: 1px solid var(--border);
-  padding: 96px 0;
+.checkbox-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px; flex-wrap: wrap;
 }
+.cb-label { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.cb-label input[type="checkbox"] { display: none; }
+.custom-cb {
+  width: 20px; height: 20px; border-radius: 6px;
+  box-shadow: var(--sh-inset-sm); background: var(--bg);
+  display: grid; place-items: center; flex-shrink: 0;
+  transition: box-shadow var(--ease), background var(--ease);
+  font-size: 12px; font-weight: 700; color: var(--white);
+}
+.custom-cb.checked { background: var(--accent); box-shadow: var(--sh-raised-sm); }
+.cb-text { font-size: 14px; color: var(--muted); }
+.cb-hint { font-size: 12px; color: var(--placeholder); }
+
+/* ── Feature Cards ────────────────────────────────────────────────────── */
+.feature-section { padding: 0 0 48px; }
 .feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 48px;
-  margin-top: 0;
+  max-width: 720px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 24px;
 }
 .feature-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 36px;
-  transition: border-color 150ms;
-  cursor: default;
+  background: var(--bg); border-radius: 32px; padding: 32px;
+  box-shadow: var(--sh-raised);
+  transition: transform var(--ease), box-shadow var(--ease);
 }
-.feature-card:hover { border-color: var(--primary); }
+.feature-card:hover { transform: translateY(-2px); box-shadow: var(--sh-raised-hov); }
 .feature-icon {
-  font-size: 28px;
-  line-height: 1;
+  width: 48px; height: 48px; border-radius: 16px;
+  box-shadow: var(--sh-inset-deep);
+  display: grid; place-items: center; font-size: 22px; margin-bottom: 16px;
 }
 .feature-card h3 {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--primary);
-  line-height: 1.25;
-  margin-top: 24px;
+  font-family: var(--font-d); font-size: 18px; font-weight: 700;
+  color: var(--fg); margin-bottom: 8px;
 }
-.feature-card p {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  color: var(--info);
-  line-height: 1.75;
-  margin-top: 12px;
-}
+.feature-card p { font-size: 14px; color: var(--muted); line-height: 1.6; }
 
-/* ── Loading state ──────────────────────────────── */
-.loading-state {
-  display: none;
-  padding: 80px 0;
-  text-align: center;
+/* ── Loading ──────────────────────────────────────────────────────────── */
+.loading-section { padding: 0 0 48px; }
+.loading-card {
+  max-width: 720px; margin: 0 auto;
+  background: var(--bg); border-radius: 32px;
+  padding: 48px; box-shadow: var(--sh-raised); text-align: center;
 }
-.loading-state.visible { display: block; }
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 800ms linear infinite;
-  margin: 0 auto 36px;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--bg); border-top-color: var(--accent);
+  box-shadow: var(--sh-raised-sm);
+  margin: 0 auto 24px; animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-title {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  color: var(--primary);
-  margin-bottom: 36px;
+  font-family: var(--font-d); font-size: 20px; font-weight: 600;
+  color: var(--fg); margin-bottom: 28px;
 }
 .loading-steps {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  max-width: 340px; margin: 0 auto;
+}
+.step {
+  border-radius: 9999px; padding: 10px 18px;
+  font-size: 14px; display: flex; align-items: center; gap: 8px;
+  box-shadow: var(--sh-raised-sm); transition: all var(--ease);
   text-align: left;
 }
-.loading-step {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.step-wait  { color: var(--placeholder); }
-.step-active { color: var(--primary); font-weight: 500; }
-.step-done  { color: var(--success); text-decoration: line-through; }
-.step-prefix { width: 14px; text-align: center; flex-shrink: 0; }
-
-/* ── Error state ────────────────────────────────── */
-.error-state {
-  display: none;
-  background: #FDF6F5;
-  border: 1px solid var(--accent);
-  border-radius: 0;
-  padding: 16px 24px;
+.step.waiting { color: var(--placeholder); }
+.step.active {
+  color: var(--fg); font-weight: 500;
   border-left: 4px solid var(--accent);
-  margin-top: 24px;
+  padding-left: 14px;
 }
-.error-state.visible { display: flex; }
-.error-text {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--accent);
-}
-
-/* ── Results ────────────────────────────────────── */
-.results-section {
-  display: none;
-  opacity: 0;
-  transition: opacity 300ms;
-  padding-bottom: 96px;
-}
-.results-section.visible { display: block; }
-.results-section.fade-in { opacity: 1; }
-
-/* Comment notice */
-.comment-notice {
-  background: #F0F7F2;
-  border: 1px solid var(--success);
-  border-radius: 0;
-  padding: 12px 24px;
-  margin-bottom: 24px;
-  font-family: var(--font-sans);
-  font-size: 14px;
+.step.done {
   color: var(--success);
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  box-shadow: var(--sh-inset-sm);
+  text-decoration: line-through;
+  text-decoration-color: var(--success);
 }
-.comment-notice a {
-  color: var(--accent);
-  text-decoration: underline;
+.step-icon { flex-shrink: 0; font-size: 12px; }
+
+/* ── Error ────────────────────────────────────────────────────────────── */
+.error-wrap { padding: 0 0 24px; }
+.error-card {
+  max-width: 720px; margin: 0 auto;
+  border-radius: 16px; background: var(--bg);
+  box-shadow: var(--sh-inset); border-left: 4px solid var(--danger);
+  padding: 16px 20px; font-size: 14px; font-weight: 500;
+  color: var(--danger); display: flex; align-items: center; gap: 8px;
 }
 
-/* Verdict banner */
-.verdict-banner {
-  border: 1px solid;
-  border-radius: 0;
-  padding: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 48px;
-  border-left-width: 4px;
-}
-.verdict-banner.approve   { background: #F0F7F2; border-color: var(--success);  border-left-color: var(--success); }
-.verdict-banner.changes   { background: #FDF6F5; border-color: var(--accent);   border-left-color: var(--accent); }
-.verdict-banner.comment   { background: #FDF8F0; border-color: var(--warn);     border-left-color: var(--warn); }
+/* ── Result Area ──────────────────────────────────────────────────────── */
+.result-area { padding-bottom: 48px; }
 
-.verdict-left { display: flex; align-items: flex-start; flex-direction: column; gap: 6px; }
-.verdict-emoji { font-size: 28px; line-height: 1; }
+.comment-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 20px; border-radius: 9999px;
+  box-shadow: var(--sh-raised-sm); font-size: 14px; color: var(--muted);
+  margin-bottom: 24px;
+}
+.comment-pill a { color: var(--accent); text-decoration: underline; }
+
+/* Verdict */
+.verdict-card {
+  border-radius: 32px; background: var(--bg); box-shadow: var(--sh-raised);
+  padding: 36px; margin-bottom: 24px;
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 32px;
+}
+.verdict-top-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+}
+.verdict-left { display: flex; align-items: center; gap: 20px; }
+.verdict-icon {
+  width: 56px; height: 56px; border-radius: 16px;
+  box-shadow: var(--sh-inset-deep);
+  display: grid; place-items: center; font-size: 28px; flex-shrink: 0;
+}
 .verdict-label {
-  font-family: var(--font-serif);
-  font-size: 28px;
-  font-weight: 500;
-  line-height: 1.1;
+  font-family: var(--font-d); font-size: 24px; font-weight: 700; margin-bottom: 4px;
 }
-.verdict-label.approve { color: var(--success); }
-.verdict-label.changes { color: var(--accent); }
-.verdict-label.comment { color: var(--warn); }
-.verdict-pr-title {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--info);
-}
-.verdict-pr-title a { color: var(--accent); text-decoration: underline; }
-
-.verdict-right { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.score-num { display: flex; align-items: baseline; gap: 4px; }
-.score-big {
-  font-family: var(--font-serif);
-  font-size: 48px;
-  color: var(--primary);
-  line-height: 1;
+.verdict-pr-link { font-size: 14px; color: var(--muted); transition: color var(--ease); }
+.verdict-pr-link:hover { color: var(--accent); }
+.verdict-right { text-align: right; flex-shrink: 0; }
+.score-big { display: flex; align-items: baseline; gap: 2px; justify-content: flex-end; }
+.score-num {
+  font-family: var(--font-d); font-size: 56px; font-weight: 800;
+  color: var(--fg); line-height: 1;
 }
 .score-denom {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  color: var(--info);
-  line-height: 1;
+  font-family: var(--font-d); font-size: 24px; font-weight: 500; color: var(--muted);
 }
-.score-bar {
-  display: flex;
-  gap: 3px;
-  align-items: center;
+.score-pips { display: flex; gap: 4px; justify-content: flex-end; margin-top: 8px; }
+.pip {
+  height: 8px; width: 20px; border-radius: 9999px;
 }
-.score-block {
-  width: 16px;
-  height: 4px;
-  border-radius: 0;
-}
+.pip.danger  { background: var(--danger);  box-shadow: var(--sh-raised-sm); }
+.pip.warning { background: var(--warning); box-shadow: var(--sh-raised-sm); }
+.pip.success { background: var(--success); box-shadow: var(--sh-raised-sm); }
+.pip.empty   { box-shadow: var(--sh-inset-sm); }
 
 /* Stats row */
 .stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 48px;
-  margin-bottom: 48px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 16px; margin-bottom: 24px;
 }
-.stat-item { display: flex; flex-direction: column; gap: 4px; }
-.stat-num {
-  font-family: var(--font-serif);
-  font-size: 56px;
-  line-height: 1;
+.stat-card {
+  background: var(--bg); border-radius: 24px; padding: 24px;
+  box-shadow: var(--sh-raised); text-align: center;
 }
-.stat-num.high   { color: var(--accent); }
-.stat-num.medium { color: var(--warn); }
-.stat-num.low    { color: var(--success); }
+.stat-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  box-shadow: var(--sh-inset); display: grid; place-items: center;
+  font-size: 18px; margin: 0 auto 10px;
+}
+.stat-number {
+  font-family: var(--font-d); font-size: 48px; font-weight: 800; line-height: 1;
+}
 .stat-label {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--info);
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase; margin-top: 6px;
 }
 
-/* Section block */
-.result-block { margin-bottom: 48px; }
-.result-block-header {
-  border-top: 1px solid var(--border);
-  padding-top: 24px;
-  margin-bottom: 16px;
+/* Summary */
+.summary-card {
+  background: var(--bg); border-radius: 32px; padding: 32px;
+  box-shadow: var(--sh-raised); margin-bottom: 24px;
 }
-.result-block-title {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--primary);
+.card-title {
+  font-family: var(--font-d); font-size: 18px; font-weight: 700; margin-bottom: 20px;
 }
-
-/* Summary table */
-.summary-table {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  border-collapse: collapse;
-  transition: border-color 150ms;
+.summary-table { width: 100%; border-collapse: collapse; }
+.summary-table tr + tr td { border-top: 1px solid rgba(163,177,198,.3); }
+.summary-table td { padding: 12px 0; vertical-align: top; }
+.summary-table td:first-child {
+  font-size: 12px; font-weight: 500; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .08em;
+  width: 110px; padding-right: 16px; white-space: nowrap;
 }
-.summary-table:hover { border-color: var(--primary); }
-.summary-table td {
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
-}
-.summary-table tr:last-child td { border-bottom: none; }
-.summary-table .td-label {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--info);
-  white-space: nowrap;
-  width: 110px;
-  padding-right: 12px;
-}
-.summary-table .td-val {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  color: var(--primary);
-}
-.summary-table .td-val.italic { font-style: italic; }
-.summary-table .td-val.small {
-  font-size: 14px;
-  color: var(--info);
-}
-.change-pill {
-  display: inline-block;
-  background: var(--primary);
-  color: #F5F0E8;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: 0;
+.type-pill {
+  display: inline-flex; padding: 4px 12px; border-radius: 9999px;
+  font-size: 12px; font-weight: 700; color: var(--white);
+  background: linear-gradient(135deg, var(--accent), var(--accent-lt));
+  box-shadow: var(--sh-raised-sm);
 }
 
-/* Severity group header */
-.severity-group {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--info);
-  padding: 8px 0 8px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 12px;
-  margin-top: 24px;
+/* Risks */
+.risks-section { margin-bottom: 24px; }
+.risk-group { margin-bottom: 20px; }
+.risk-group-hd {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
 }
-.severity-group:first-of-type { margin-top: 0; }
-
-/* Risk card */
+.group-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.group-label {
+  font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+}
 .risk-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: 0;
-  margin-bottom: 16px;
-  transition: border-right-color 150ms, border-top-color 150ms, border-bottom-color 150ms;
+  background: var(--bg); border-radius: 24px; margin-bottom: 12px;
+  box-shadow: var(--sh-raised); overflow: hidden;
+  transition: transform var(--ease), box-shadow var(--ease);
 }
-.risk-card:hover {
-  border-right-color: var(--primary);
-  border-top-color: var(--primary);
-  border-bottom-color: var(--primary);
-}
-.risk-card.high   { border-left-color: var(--accent); }
-.risk-card.medium { border-left-color: var(--warn); }
-.risk-card.low    { border-left-color: var(--success); }
-
+.risk-card:hover { transform: translateY(-1px); box-shadow: var(--sh-raised-hov); }
 .risk-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
-  cursor: pointer;
-  user-select: none;
+  padding: 20px 24px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
 }
-.risk-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.risk-sev-bar { width: 4px; border-radius: 2px; align-self: stretch; min-height: 36px; flex-shrink: 0; }
+.risk-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  box-shadow: var(--sh-inset-sm);
+  display: grid; place-items: center; font-size: 16px; flex-shrink: 0;
 }
-.risk-card.high   .risk-dot { background: var(--accent); }
-.risk-card.medium .risk-dot { background: var(--warn); }
-.risk-card.low    .risk-dot { background: var(--success); }
-
 .risk-title-text {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  color: var(--primary);
-  flex: 1;
+  font-family: var(--font-d); font-size: 16px; font-weight: 600; flex: 1; min-width: 0;
 }
 .risk-file {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--info);
-  white-space: nowrap;
+  font-family: var(--font-m); font-size: 11px; color: var(--muted);
+  text-align: right; flex-shrink: 0; max-width: 160px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.risk-chip {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border: 1px solid var(--border);
-  padding: 3px 8px;
-  border-radius: 0;
-  white-space: nowrap;
+.risk-cat-pill {
+  border-radius: 9999px; box-shadow: var(--sh-raised-sm);
+  padding: 3px 10px; font-size: 11px; font-weight: 500;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap; flex-shrink: 0;
 }
-.risk-toggle {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--info);
-  flex-shrink: 0;
+.risk-chevron {
+  font-size: 14px; color: var(--placeholder);
+  transition: transform var(--ease); flex-shrink: 0;
 }
-
+.risk-chevron.open { transform: rotate(180deg); }
 .risk-body {
-  padding: 20px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  padding: 0 24px 24px;
+  border-top: 1px solid rgba(163,177,198,.3);
+  display: none;
 }
-.risk-body.collapsed { display: none; }
-
-.risk-description {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  color: var(--primary);
-  line-height: 1.75;
+.risk-body.open { display: block; }
+.risk-desc { font-size: 15px; line-height: 1.6; margin: 16px 0 12px; }
+.inset-card {
+  background: var(--bg); border-radius: 16px;
+  box-shadow: var(--sh-inset); padding: 14px 16px; margin-bottom: 10px;
 }
-
-.risk-reason-block {
-  padding-left: 16px;
-  border-left-width: 4px;
-  border-left-style: solid;
+.inset-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; margin-bottom: 6px;
 }
-.risk-reason-block.why  { border-left-color: var(--accent); }
-.risk-reason-block.trap { border-left-color: var(--warn); }
-
-.risk-reason-label {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 6px;
+.inset-card p { font-size: 14px; line-height: 1.6; }
+.code-wrap-label {
+  font-size: 11px; font-weight: 500; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px;
 }
-.risk-reason-block.why  .risk-reason-label { color: var(--accent); }
-.risk-reason-block.trap .risk-reason-label { color: var(--warn); }
-
-.risk-reason-text {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--primary);
-  line-height: 1.75;
+.code-wrap {
+  border-radius: 16px; overflow: hidden;
+  box-shadow: var(--sh-inset-deep); position: relative; margin-top: 4px;
 }
-
-.risk-fix-label {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--info);
-  margin-bottom: 8px;
+.code-wrap pre { margin: 0 !important; border-radius: 0 !important; }
+.code-wrap pre code { font-family: var(--font-m) !important; font-size: 13px !important; }
+.copy-code-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--bg); border-radius: 8px; padding: 4px 10px;
+  font-size: 11px; font-weight: 500; color: var(--muted);
+  box-shadow: var(--sh-raised-sm); transition: all var(--ease);
 }
-.risk-code-block {
-  background: var(--primary);
-  padding: 16px;
-  border-radius: 0;
-  overflow-x: auto;
+.copy-code-btn:hover { box-shadow: var(--sh-raised); }
+.text-suggestion {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 14px; font-weight: 500; color: var(--success); margin-top: 8px;
 }
-.risk-code-block pre,
-.risk-code-block code {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 0;
-  background: transparent !important;
-  color: #F5F0E8;
-}
-.risk-suggestion {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--success);
-}
-.risk-suggestion::before { content: '→  '; }
 
 /* Quick wins */
-.quick-win-list {
-  list-style: none;
+.quick-section { margin-bottom: 24px; }
+.quick-list { display: flex; flex-direction: column; gap: 8px; }
+.quick-item {
+  background: var(--bg); border-radius: 16px; padding: 12px 16px;
+  box-shadow: var(--sh-raised-sm); font-size: 14px;
+  display: flex; align-items: flex-start; gap: 8px;
+  transition: box-shadow var(--ease);
 }
-.quick-win-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  border-bottom: 1px solid var(--border);
-  height: 48px;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  color: var(--primary);
+.quick-item:hover { box-shadow: var(--sh-raised); }
+.quick-arrow { color: var(--accent); flex-shrink: 0; line-height: 1.55; }
+
+/* Comment preview */
+.preview-card {
+  background: var(--bg); border-radius: 32px; padding: 32px;
+  box-shadow: var(--sh-raised); margin-bottom: 24px;
 }
-.quick-win-item::before {
-  content: '—';
-  color: var(--info);
-  font-family: var(--font-sans);
-  flex-shrink: 0;
+.preview-hd {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
 }
-.quick-win-item:last-child { border-bottom: none; }
+.copy-btn {
+  background: var(--bg); border-radius: 16px; padding: 8px 16px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  box-shadow: var(--sh-raised-sm); transition: all var(--ease);
+}
+.copy-btn:hover { transform: translateY(-1px); box-shadow: var(--sh-raised); }
+.copy-btn:active { transform: translateY(.5px); box-shadow: var(--sh-inset-sm); }
+.copy-btn.copied { color: var(--success); }
+.preview-content {
+  background: var(--bg); border-radius: 16px;
+  box-shadow: var(--sh-inset-deep); padding: 20px;
+  font-family: var(--font-m); font-size: 13px; color: var(--fg);
+  line-height: 1.6; max-height: 360px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* History */
+.history-section { padding-bottom: 64px; }
+.history-divider {
+  border: 0; border-top: 1px solid rgba(163,177,198,.4); margin: 40px 0 24px;
+}
+.history-hd {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+}
+.clear-btn {
+  background: var(--bg); border-radius: 16px; padding: 8px 16px;
+  font-size: 13px; font-weight: 500; color: var(--muted);
+  box-shadow: var(--sh-raised-sm); transition: all var(--ease);
+}
+.clear-btn:hover { box-shadow: var(--sh-raised); }
+.history-list { display: flex; flex-direction: column; gap: 10px; }
+.hist-item {
+  background: var(--bg); border-radius: 20px; padding: 16px 20px;
+  box-shadow: var(--sh-raised-sm); display: flex; align-items: center;
+  gap: 12px; cursor: pointer;
+  transition: transform var(--ease), box-shadow var(--ease);
+}
+.hist-item:hover { transform: translateY(-1px); box-shadow: var(--sh-raised); }
+.hist-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  box-shadow: var(--sh-inset-sm); display: grid; place-items: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.hist-info { flex: 1; min-width: 0; }
+.hist-title {
+  font-size: 14px; font-weight: 500; color: var(--fg);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hist-time { font-size: 12px; color: var(--placeholder); margin-top: 2px; }
+.hist-meta { text-align: right; flex-shrink: 0; }
+.hist-score { font-family: var(--font-d); font-size: 20px; font-weight: 700; }
+.hist-high { font-size: 12px; font-weight: 500; color: var(--danger); margin-top: 2px; }
 
 /* Footer */
 footer {
-  background: var(--primary);
-  padding: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  box-shadow: var(--sh-inset);
+  padding: 40px 24px;
+  text-align: center;
 }
 .footer-brand {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  font-style: italic;
-  color: #F5F0E8;
+  font-family: var(--font-d); font-size: 18px; font-weight: 800;
+  color: var(--fg); margin-bottom: 8px;
 }
-.footer-note {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--info);
-}
+.footer-note { font-size: 13px; color: var(--muted); }
 
-/* ── Responsive ─────────────────────────────────── */
-@media (max-width: 720px) {
-  nav { padding: 0 20px; }
-  .nav-logo-sub { display: none; }
+/* ── Responsive ───────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .input-row { flex-direction: column; align-items: stretch; }
+  .analyze-btn { width: 100%; }
   .feature-grid { grid-template-columns: 1fr; gap: 16px; }
-  .stats-row { grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .stat-num { font-size: 36px; }
-  .verdict-banner { flex-direction: column; gap: 20px; align-items: flex-start; }
-  .verdict-right { align-items: flex-start; text-align: left; }
-  footer { padding: 36px 20px; flex-direction: column; gap: 12px; align-items: flex-start; }
-  .input-row { flex-direction: column; }
-  .input-row input[type="text"] { border-right: 1px solid var(--info); border-bottom: none; }
-  .input-row input[type="text"]:focus { border: 2px solid var(--accent); border-bottom: none; }
-  .btn-primary { width: 100%; }
-  .risk-header { flex-wrap: wrap; }
-  .risk-file { order: 3; width: 100%; }
-  /* 历史记录移动端适配 */
-  #history-section { padding: 0 0 48px; }
-  /* 评论预览移动端 */
-  #github-comment-preview { font-size: 11px; }
-  /* checkbox行移动端换行 */
-  .checkbox-row { flex-wrap: wrap; gap: 6px; }
+  .verdict-card { flex-direction: column; gap: 20px; }
+  .verdict-right { text-align: left; }
+  .score-pips { justify-content: flex-start; }
+  .risk-file, .risk-cat-pill { display: none; }
 }
-@media (max-width: 480px) {
-  .container { padding: 0 16px; }
-  .input-section { padding: 60px 0; }
-  .input-section h1 { font-size: 28px; }
-  .score-big { font-size: 36px; }
-  .verdict-label { font-size: 22px; }
-  .risk-chip { display: none; }
-  .result-block-title { font-size: 20px; }
+@media (max-width: 500px) {
+  .stats-row { grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .stat-card { padding: 16px 10px; }
+  .stat-number { font-size: 36px; }
+  .summary-table td:first-child { width: 80px; font-size: 10px; }
 }
 </style>
-<style data-od-tweaks-bridge-style="">
-[data-od-tweaks-hidden] .tw-panel {
-  transform: translateX(calc(100% + 32px)) !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-.tw-restore { display: none !important; }
-</style><script data-od-tweaks-bridge="">(function(){
-  // Synchronously hide BEFORE the artifact body parses so the panel never
-  // flashes on initial paint. The host removes the attribute via postMessage
-  // once it knows the desired state.
-  document.documentElement.setAttribute('data-od-tweaks-hidden', '');
-
-  var suppressEcho = false;
-  var observer = null;
-
-  function panelEl(){ return document.querySelector('.tw-panel'); }
-
-  function applyClassesToPanel(visible){
-    var panel = panelEl();
-    if (panel) panel.classList.toggle('tw-hidden', !visible);
-  }
-
-  function setPanelVisible(visible){
-    suppressEcho = true;
-    document.documentElement.toggleAttribute('data-od-tweaks-hidden', !visible);
-    applyClassesToPanel(visible);
-    // Clear flag after the MutationObserver has had a chance to fire for this
-    // change so we don't echo our own host-driven toggles back to the host.
-    Promise.resolve().then(function(){ suppressEcho = false; });
-  }
-
-  function postState(){
-    var panel = panelEl();
-    if (!panel) return;
-    try {
-      parent.postMessage({
-        type: 'od:tweaks-panel-state',
-        visible: !panel.classList.contains('tw-hidden'),
-      }, '*');
-    } catch (e) {}
-  }
-
-  function postAvailability(){
-    try {
-      parent.postMessage({
-        type: 'od:tweaks-available',
-        available: !!panelEl(),
-      }, '*');
-    } catch (e) {}
-  }
-
-  function attachObserver(){
-    var panel = panelEl();
-    if (!panel || observer) return;
-    observer = new MutationObserver(function(){
-      if (suppressEcho) return;
-      postState();
-    });
-    observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
-  }
-
-  function onReady(){
-    // Capture the panel authored visibility BEFORE we apply the host hidden
-    // attribute. The bridge sets data-od-tweaks-hidden synchronously in head
-    // (before the body parses), so on entry to onReady the attribute is
-    // always present even though the artifact may have authored the panel
-    // as default-visible. Reading the panel class first is the only place
-    // we can still observe the author intent. Then drive the attribute,
-    // classes, and posted state from that captured value so a default
-    // visible tw-panel reports visible:true and the toolbar toggle starts
-    // ON. Issue surfaced in PR #1643 review.
-    var panel = panelEl();
-    var initialVisible = !!panel && !panel.classList.contains('tw-hidden');
-    document.documentElement.toggleAttribute('data-od-tweaks-hidden', !initialVisible);
-    applyClassesToPanel(initialVisible);
-    attachObserver();
-    postAvailability();
-    // Post the captured initial visibility so the toolbar toggle reflects
-    // the default state on mount. Without this the toggle reads OFF while
-    // a default-visible tw-panel artifact clearly shows its panel and the
-    // user would have to click toggle-on then toggle-off to actually hide.
-    postState();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', onReady);
-  } else {
-    onReady();
-  }
-
-  window.addEventListener('message', function(ev){
-    if (!ev.data || ev.data.type !== 'od:tweaks-panel-visible') return;
-    setPanelVisible(!!ev.data.visible);
-  });
-})();</script></head>
+</head>
 <body>
 
-<!-- ── Nav ───────────────────────────────────────── -->
-<nav data-od-id="path-0">
-  <div class="nav-logo" data-od-id="path-0-0">
-    <span class="nav-logo-title">X-Reviewer</span>
-    <span class="nav-logo-sub">为 Vibe Coder 设计的代码审查助手</span>
-    <span class="nav-beta">BETA</span>
+<!-- ── Nav ─────────────────────────────────────────────────────────────── -->
+<header class="topnav" data-od-id="topnav">
+  <div class="topnav-inner">
+    <div class="logo-group">
+      <div class="icon-well-nav">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Hexagon outline -->
+          <path d="M12 2L20.66 7V17L12 22L3.34 17V7L12 2Z" stroke="#6C63FF" stroke-width="1.5" stroke-linejoin="round"/>
+          <!-- Code bracket left -->
+          <path d="M9 9L6.5 12L9 15" stroke="#6C63FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Code bracket right -->
+          <path d="M15 9L17.5 12L15 15" stroke="#6C63FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Scan line center -->
+          <line x1="11" y1="12" x2="13" y2="12" stroke="#8B84FF" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <span class="logo-text">X-Reviewer</span>
+      <span class="beta-pill">AI PR Review</span>
+    </div>
+    <nav class="nav-links">
+      <a href="#">准确率统计</a>
+      <span class="nav-sep">·</span>
+      <a href="#">系统设计</a>
+    </nav>
   </div>
-  <div class="nav-links" data-od-id="path-0-1">
-    <a href="/stats" target="_blank" class="nav-link" data-od-id="path-0-1-0">准确率统计</a>
-    <span class="nav-sep">·</span>
-    <a href="https://github.com/vigariokoestner958-droid/ai-pr-review-assistant/blob/master/SYSTEM_DESIGN.md" target="_blank" class="nav-link" data-od-id="path-0-1-2">系统设计</a>
+</header>
+
+<main>
+
+<!-- ── Input ────────────────────────────────────────────────────────────── -->
+<section class="input-section" data-od-id="input">
+  <div class="wrap">
+    <h1>Review Your AI-Generated Code</h1>
+    <p class="input-subtitle">粘贴 GitHub PR 链接，X-Reviewer 自动分析 AI 代码风险</p>
+
+    <div class="input-card">
+      <div class="input-row">
+        <input
+          id="pr-input"
+          class="pr-input"
+          type="url"
+          placeholder="https://github.com/owner/repo/pull/123"
+          autocomplete="off"
+        >
+        <button id="analyze-btn" class="analyze-btn">分析</button>
+      </div>
+      <div class="checkbox-row">
+        <label class="cb-label" id="cb-label">
+          <input type="checkbox" id="post-comment">
+          <span class="custom-cb" id="custom-cb"></span>
+          <span class="cb-text">分析完成后自动发布评论到 GitHub PR</span>
+        </label>
+        <span class="cb-hint">（需配置 GITHUB_TOKEN）</span>
+      </div>
+    </div>
   </div>
-</nav>
+</section>
 
-<!-- ── Main ──────────────────────────────────────── -->
-<main data-od-id="path-1">
-  <div class="container" data-od-id="path-1-0">
-
-    <!-- Input section -->
-    <section class="input-section" data-od-id="path-1-0-0">
-      <h1 data-od-id="path-1-0-0-0">输入 GitHub PR 链接</h1>
-      <p class="subtitle">粘贴任意公开仓库的 Pull Request 地址，AI 自动分析代码变更</p>
-
-      <div class="input-row" data-od-id="path-1-0-0-2">
-        <input type="text" id="pr-input" placeholder="https://github.com/owner/repo/pull/123" autocomplete="off" spellcheck="false" data-od-id="path-1-0-0-2-0">
-        <button class="btn-primary" id="analyze-btn" onclick="startAnalysis()" data-od-id="path-1-0-0-2-1">开始分析</button>
+<!-- ── Empty State ──────────────────────────────────────────────────────── -->
+<section id="empty-state" class="feature-section" data-od-id="empty-state">
+  <div class="wrap">
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke="#6C63FF" stroke-width="1.6"/>
+            <line x1="7" y1="8" x2="17" y2="8" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="7" y1="12" x2="14" y2="12" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="7" y1="16" x2="11" y2="16" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/>
+            <polyline points="15,13 17,15 15,17" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <h3>变更摘要</h3>
+        <p>自动理解 PR 改了什么，核心逻辑一句话说清楚，无需逐行阅读 diff。</p>
       </div>
-
-      <div class="checkbox-row" data-od-id="path-1-0-0-3">
-        <input type="checkbox" id="post-comment" data-od-id="path-1-0-0-3-0">
-        <label class="checkbox-label" for="post-comment">分析完成后自动发布评论到 GitHub PR</label>
-        <span class="checkbox-hint">（需配置 GITHUB_TOKEN）</span>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3L4 6.5V12c0 4.1 3.4 7.9 8 9 4.6-1.1 8-4.9 8-9V6.5L12 3Z" stroke="#6C63FF" stroke-width="1.6" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="2.5" stroke="#6C63FF" stroke-width="1.4"/>
+            <line x1="12" y1="8" x2="12" y2="9.5" stroke="#6C63FF" stroke-width="1.4" stroke-linecap="round"/>
+            <line x1="15.5" y1="9" x2="14.2" y2="10.1" stroke="#6C63FF" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3>风险识别</h3>
+        <p>HIGH / MEDIUM / LOW 分级，每条告诉你为什么是问题，以及 AI 代码陷阱所在。</p>
       </div>
-
-      <!-- Error state -->
-      <div class="error-state" id="error-state" data-od-id="path-1-0-0-4">
-        <span class="error-text">✕&nbsp;&nbsp;<span id="error-msg" data-od-id="path-1-0-0-4-0-0">请输入有效的 GitHub PR 地址</span></span>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="4,12 8,8 11,11 16,6" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <line x1="14" y1="6" x2="20" y2="6" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="20" y1="6" x2="20" y2="12" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M9 16h6M7 19h10" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <h3>一键修复</h3>
+        <p>直接在 GitHub PR 页面采纳 AI 建议，提供可直接复制的修复代码片段。</p>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <!-- Empty state -->
-    <section class="empty-state" id="empty-state" data-od-id="path-1-0-1">
-      <div class="feature-grid" data-od-id="path-1-0-1-0">
-        <div class="feature-card">
-          <div class="feature-icon">📋</div>
-          <h3 data-od-id="path-1-0-1-0-0-1">变更摘要</h3>
-          <p>自动理解 PR 改了什么，核心逻辑一句话说清楚</p>
+<!-- ── Loading State ─────────────────────────────────────────────────────── -->
+<section id="loading-state" class="loading-section hidden" data-od-id="loading">
+  <div class="wrap">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div class="loading-title">正在分析 PR...</div>
+      <div class="loading-steps">
+        <div class="step waiting" id="step-1">
+          <span class="step-icon">—</span>
+          <span>获取 PR 变更内容</span>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">🛡</div>
-          <h3 data-od-id="path-1-0-1-0-1-1">风险识别</h3>
-          <p>HIGH / MEDIUM / LOW 分级，每条告诉你为什么是问题</p>
+        <div class="step waiting" id="step-2">
+          <span class="step-icon">—</span>
+          <span>AI 风险扫描</span>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon">⚡</div>
-          <h3 data-od-id="path-1-0-1-0-2-1">一键修复</h3>
-          <p>直接在 GitHub PR 页面采纳 AI 建议，无需手动复制粘贴</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Loading state -->
-    <section class="loading-state" id="loading-state" data-od-id="path-1-0-2">
-      <div class="spinner" data-od-id="path-1-0-2-0"></div>
-      <div class="loading-title" data-od-id="path-1-0-2-1">正在分析 PR...</div>
-      <div class="loading-steps" id="loading-steps" data-od-id="path-1-0-2-2">
-        <div class="loading-step step-wait" id="step-1" data-od-id="path-1-0-2-2-0">
-          <span class="step-prefix">—</span>
-          <span>获取 PR 数据</span>
-        </div>
-        <div class="loading-step step-wait" id="step-2" data-od-id="path-1-0-2-2-1">
-          <span class="step-prefix">—</span>
-          <span>Layer 1 — 变更摘要生成</span>
-        </div>
-        <div class="loading-step step-wait" id="step-3" data-od-id="path-1-0-2-2-2">
-          <span class="step-prefix">—</span>
-          <span>Layer 2 — 深度风险扫描</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Results section -->
-    <section class="results-section" id="results-section" data-od-id="path-1-0-3">
-
-      <div class="comment-notice" id="comment-notice" style="display:none;" data-od-id="path-1-0-3-0">
-        ✓ 评论已发布 — <a href="#" id="comment-link" data-od-id="path-1-0-3-0-0">在 GitHub 查看</a>
-      </div>
-
-      <div class="verdict-banner" id="verdict-banner" data-od-id="path-1-0-3-1">
-        <div class="verdict-left" data-od-id="path-1-0-3-1-0">
-          <span class="verdict-emoji" id="verdict-emoji" data-od-id="path-1-0-3-1-0-0"></span>
-          <span class="verdict-label" id="verdict-label" data-od-id="path-1-0-3-1-0-1"></span>
-          <span class="verdict-pr-title" id="verdict-pr-title" data-od-id="path-1-0-3-1-0-2"></span>
-        </div>
-        <div class="verdict-right" data-od-id="path-1-0-3-1-1">
-          <div class="score-num">
-            <span class="score-big" id="score-big" data-od-id="path-1-0-3-1-1-0-0"></span>
-            <span class="score-denom">/10</span>
-          </div>
-          <div class="score-bar" id="score-bar" data-od-id="path-1-0-3-1-1-1"></div>
+        <div class="step waiting" id="step-3">
+          <span class="step-icon">—</span>
+          <span>生成审查报告</span>
         </div>
       </div>
+    </div>
+  </div>
+</section>
 
-      <div class="stats-row" data-od-id="path-1-0-3-2">
-        <div class="stat-item">
-          <span class="stat-num high" id="stat-high" data-od-id="path-1-0-3-2-0-0">0</span>
-          <span class="stat-label">HIGH 风险</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num medium" id="stat-medium" data-od-id="path-1-0-3-2-1-0">0</span>
-          <span class="stat-label">MEDIUM 风险</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num low" id="stat-low" data-od-id="path-1-0-3-2-2-0">0</span>
-          <span class="stat-label">LOW 风险</span>
+<!-- ── Error State ───────────────────────────────────────────────────────── -->
+<div id="error-state" class="error-wrap hidden" data-od-id="error">
+  <div class="wrap">
+    <div class="error-card">
+      <span>✕</span>
+      <span id="error-msg">分析失败，请检查 PR 链接格式是否正确。</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Result Area ───────────────────────────────────────────────────────── -->
+<section id="result-area" class="result-area hidden" data-od-id="results">
+  <div class="wrap">
+
+    <!-- Comment notification -->
+    <div id="comment-notification" class="hidden">
+      <div class="comment-pill">
+        <span style="color:var(--success)">✓</span>
+        <span>评论已发布 —</span>
+        <a id="comment-link" href="#" target="_blank">查看评论</a>
+      </div>
+    </div>
+
+    <!-- Verdict banner -->
+    <div class="verdict-card" id="verdict-card">
+      <div class="verdict-top-bar" id="verdict-bar"></div>
+      <div class="verdict-left">
+        <div class="verdict-icon" id="verdict-icon"></div>
+        <div>
+          <div class="verdict-label" id="verdict-label"></div>
+          <a class="verdict-pr-link" id="verdict-pr-link" href="#" target="_blank"></a>
         </div>
       </div>
-
-      <div class="result-block" data-od-id="path-1-0-3-3">
-        <div class="result-block-header">
-          <div class="result-block-title">变更摘要</div>
+      <div class="verdict-right">
+        <div class="score-big">
+          <span class="score-num" id="score-num"></span>
+          <span class="score-denom">/10</span>
         </div>
-        <table class="summary-table" id="summary-table" data-od-id="path-1-0-3-3-1">
-          <tbody>
-            <tr>
-              <td class="td-label">变更类型</td>
-              <td class="td-val"><span class="change-pill" id="summary-type" data-od-id="path-1-0-3-3-1-0-0-1-0"></span></td>
-            </tr>
-            <tr>
-              <td class="td-label">核心改动</td>
-              <td class="td-val" id="summary-core" data-od-id="path-1-0-3-3-1-0-1-1"></td>
-            </tr>
-            <tr>
-              <td class="td-label">影响模块</td>
-              <td class="td-val small" id="summary-modules" data-od-id="path-1-0-3-3-1-0-2-1"></td>
-            </tr>
-            <tr>
-              <td class="td-label">一句话总结</td>
-              <td class="td-val italic" id="summary-what" data-od-id="path-1-0-3-3-1-0-3-1"></td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="score-pips" id="score-pips"></div>
       </div>
+    </div>
 
-      <div class="result-block" data-od-id="path-1-0-3-4">
-        <div class="result-block-header">
-          <div class="result-block-title">风险评估</div>
-        </div>
-        <div id="risks-container" data-od-id="path-1-0-3-4-1"></div>
+    <!-- Stats row -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-number" id="stat-high" style="color:var(--danger)">0</div>
+        <div class="stat-label">HIGH 风险</div>
       </div>
-
-      <div class="result-block" data-od-id="path-1-0-3-5">
-        <div class="result-block-header">
-          <div class="result-block-title">快速改进</div>
-        </div>
-        <ul class="quick-win-list" id="quick-wins-list" data-od-id="path-1-0-3-5-1"></ul>
+      <div class="stat-card">
+        <div class="stat-icon">🟡</div>
+        <div class="stat-number" id="stat-med" style="color:var(--warning)">0</div>
+        <div class="stat-label">MEDIUM 风险</div>
       </div>
-
-      <!-- GitHub 评论预览 Tab -->
-      <div class="result-block" id="comment-preview-block">
-        <div class="result-block-header" style="display:flex;align-items:center;justify-content:space-between">
-          <div class="result-block-title">GitHub 评论预览</div>
-          <button onclick="copyComment()" id="copy-btn"
-            style="background:var(--primary);color:#F5F0E8;border:none;padding:6px 16px;
-                   font-family:var(--font-sans);font-size:12px;font-weight:500;cursor:pointer;
-                   letter-spacing:.04em">
-            复制
-          </button>
-        </div>
-        <div id="github-comment-preview"
-          style="background:#fff;border:1px solid var(--border);padding:20px;
-                 font-family:var(--font-mono);font-size:12px;line-height:1.6;
-                 white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto;
-                 color:#3C1518"></div>
+      <div class="stat-card">
+        <div class="stat-icon">🟢</div>
+        <div class="stat-number" id="stat-low" style="color:var(--success)">0</div>
+        <div class="stat-label">LOW 风险</div>
       </div>
+    </div>
 
-    </section>
+    <!-- Summary card -->
+    <div class="summary-card" id="summary-card">
+      <div class="card-title">变更摘要</div>
+      <table class="summary-table">
+        <tr>
+          <td>变更类型</td>
+          <td><span class="type-pill" id="sum-type"></span></td>
+        </tr>
+        <tr>
+          <td>核心改动</td>
+          <td id="sum-core" style="font-size:15px;"></td>
+        </tr>
+        <tr>
+          <td>影响模块</td>
+          <td id="sum-modules" style="font-size:14px;color:var(--muted);"></td>
+        </tr>
+        <tr>
+          <td>一句话总结</td>
+          <td id="sum-what" style="font-size:15px;font-style:italic;"></td>
+        </tr>
+      </table>
+    </div>
 
-    <!-- 历史记录 -->
-    <section id="history-section" style="display:none;padding-bottom:48px">
-      <hr class="divider" style="margin-bottom:32px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-family:var(--font-serif);font-size:22px;color:var(--primary)">最近分析记录</h2>
-        <button onclick="clearHistory()"
-          style="background:none;border:1px solid var(--border);color:var(--info);
-                 font-family:var(--font-sans);font-size:12px;padding:4px 12px;cursor:pointer">
-          清除记录
-        </button>
+    <!-- Risk assessment -->
+    <div class="risks-section" id="risks-section">
+      <div class="card-title">风险评估</div>
+      <div id="risks-container"></div>
+    </div>
+
+    <!-- Quick wins -->
+    <div class="quick-section" id="quick-section">
+      <div class="card-title">快速改进建议</div>
+      <div class="quick-list" id="quick-list"></div>
+    </div>
+
+    <!-- GitHub comment preview -->
+    <div class="preview-card" id="preview-card">
+      <div class="preview-hd">
+        <div class="card-title" style="margin-bottom:0">GitHub 评论预览</div>
+        <button class="copy-btn" id="copy-comment-btn">复制</button>
       </div>
-      <div id="history-list"></div>
-    </section>
+      <div class="preview-content" id="preview-content"></div>
+    </div>
 
   </div>
+</section>
+
+<!-- ── History ────────────────────────────────────────────────────────────── -->
+<section id="history-section" class="history-section hidden" data-od-id="history">
+  <div class="wrap">
+    <hr class="history-divider">
+    <div class="history-hd">
+      <div class="card-title" style="margin-bottom:0">历史记录</div>
+      <button class="clear-btn" id="clear-history-btn">清除</button>
+    </div>
+    <div class="history-list" id="history-list"></div>
+  </div>
+</section>
+
 </main>
 
-<footer data-od-id="path-2">
-  <span class="footer-brand">X-Reviewer</span>
-  <span class="footer-note">分析结果仅供参考，请结合实际情况判断</span>
+<!-- ── Footer ─────────────────────────────────────────────────────────────── -->
+<footer data-od-id="footer">
+  <div class="footer-brand">X-Reviewer</div>
+  <div class="footer-note">分析结果仅供参考，请结合实际情况判断</div>
 </footer>
 
 <script>
-const MOCK_RESPONSE = {
-  pr_title: "feat: add OAuth2 authentication with token refresh",
-  pr_url: "https://github.com/example/api-server/pull/247",
-  summary_change_type: "feature",
-  summary_core_change: "新增 OAuth2 认证模块，包含 JWT 签发、刷新令牌存储与过期处理逻辑",
-  affected_modules: "auth/oauth.py · middleware/session.py · utils/token.py · tests/test_auth.py",
-  summary_what_changed: "此 PR 引入了完整的 OAuth2 流程，但令牌刷新策略存在竞态条件风险，需在合并前修复",
-  verdict: "REQUEST_CHANGES",
+/* ── Mock Data ──────────────────────────────────────────────────────────── */
+const MOCK = {
+  pr_title: 'feat: 添加 AI 代码生成功能模块',
+  pr_url: 'https://github.com/example/repo/pull/42',
+  verdict: 'REQUEST_CHANGES',
   overall_score: 5,
   risks: [
     {
-      severity: "HIGH",
-      category: "安全漏洞",
-      file: "auth/oauth.py",
-      line: 142,
-      title: "刷新令牌未加密存储于 Redis",
-      description: "refresh_token 以明文字符串写入 Redis，任何可访问 Redis 实例的进程均可直接读取并伪造身份。",
-      why_it_matters: "攻击者一旦获得 Redis 访问权限，可枚举所有活跃会话的刷新令牌并长期持有用户身份，绕过所有过期策略。",
-      ai_trap: "AI 生成的 store_token() 函数使用了标准库的 pickle 序列化，这会引入反序列化 RCE 风险，而非仅是存储安全问题。",
+      severity: 'HIGH',
+      file: 'src/ai/generator.py',
+      line: 127,
+      title: '未验证 AI 输出导致 SQL 注入风险',
+      description: 'AI 生成的查询语句直接拼接用户输入，未做任何参数化处理，攻击者可通过构造 PR 描述执行任意 SQL 语句。',
+      why_it_matters: '攻击者可绕过所有业务逻辑，直接在数据库层执行 DROP、SELECT 等操作，导致数据泄露或丢失。',
+      ai_trap: 'AI 生成 SQL 时倾向于字符串拼接，因为这是最直接的实现方式，但它完全忽略了安全边界。',
       suggestion: null,
-      suggestion_code: `# 使用 HMAC-SHA256 对令牌签名后再存储
-import hmac, hashlib, os
-
-SECRET = os.environ['REDIS_TOKEN_SECRET'].encode()
-
-def signed_token(raw_token: str) -> str:
-    sig = hmac.new(SECRET, raw_token.encode(), hashlib.sha256).hexdigest()
-    return f"{raw_token}.{sig}"
-
-def verify_token(stored: str) -> str | None:
-    parts = stored.rsplit('.', 1)
-    if len(parts) != 2:
-        return None
-    raw, sig = parts
-    expected = hmac.new(SECRET, raw.encode(), hashlib.sha256).hexdigest()
-    if hmac.compare_digest(sig, expected):
-        return raw
-    return None`
+      suggestion_code: '# ✅ 使用参数化查询\ncursor.execute(\n    \'SELECT * FROM repos WHERE id = %s AND owner = %s\',\n    (repo_id, owner_id)\n)'
     },
     {
-      severity: "HIGH",
-      category: "竞态条件",
-      file: "auth/oauth.py",
-      line: 198,
-      title: "并发刷新令牌导致重放攻击窗口",
-      description: "refresh_token() 在读取与写入之间没有原子锁，多个并发请求可在旧令牌失效前同时换取新令牌。",
-      why_it_matters: "在高并发场景（移动端网络切换、多标签页）下，攻击者可截获并重放已\"消费\"的刷新令牌，因为服务端尚未完成轮转。",
-      ai_trap: null,
-      suggestion: null,
-      suggestion_code: `import redis
-
-r = redis.Redis()
-
-def refresh_token_atomic(old_token: str) -> str:
-    lock_key = f"lock:refresh:{old_token}"
-    with r.lock(lock_key, timeout=5, blocking_timeout=2):
-        stored = r.get(f"token:{old_token}")
-        if not stored:
-            raise ValueError("令牌已失效或已被轮转")
-        new_token = generate_token()
-        pipe = r.pipeline()
-        pipe.delete(f"token:{old_token}")
-        pipe.setex(f"token:{new_token}", 86400, "valid")
-        pipe.execute()
-        return new_token`
-    },
-    {
-      severity: "MEDIUM",
-      category: "错误处理",
-      file: "middleware/session.py",
-      line: 67,
-      title: "令牌过期异常未区分客户端错误类型",
-      description: "TokenExpiredError 与 TokenInvalidError 均返回 HTTP 401，客户端无法区分「需要刷新」与「需要重新登录」。",
-      why_it_matters: "移动端 SDK 通常依赖错误码自动刷新令牌，统一返回 401 会导致无限刷新循环，消耗用户流量并触发速率限制。",
-      ai_trap: null,
-      suggestion: "对 TokenExpiredError 返回 401 并附加 WWW-Authenticate: Bearer error=\"invalid_token\"，对 TokenInvalidError 返回 403，使客户端可精准处理。",
+      severity: 'MEDIUM',
+      file: 'src/auth/token.py',
+      line: 43,
+      title: 'Access Token 有效期过长，无刷新机制',
+      description: '访问令牌有效期设为 30 天，且没有实现 refresh token 轮换策略。',
+      why_it_matters: '令牌泄露后攻击窗口期长达 30 天，且无法提前失效，影响面极大。',
+      ai_trap: 'AI 生成认证代码时常忽略 token 轮换策略，因为简化实现更容易通过功能测试。',
+      suggestion: '建议缩短 access token 有效期到 1 小时，实现 refresh token 机制（有效期 7 天，使用后立即轮换）。',
       suggestion_code: null
     },
     {
-      severity: "MEDIUM",
-      category: "测试覆盖",
-      file: "tests/test_auth.py",
-      line: 1,
-      title: "缺少并发场景与边界条件测试",
-      description: "test_auth.py 仅覆盖正常登录流程，未包含令牌并发刷新、过期边界（-1s / +1s）及 Redis 不可用时的降级行为测试。",
-      why_it_matters: "未测试的边界条件是生产事故的主要来源，尤其是认证模块，任何未覆盖的边界都可能成为安全漏洞的入口。",
+      severity: 'LOW',
+      file: 'src/utils/logger.py',
+      line: 89,
+      title: '日志中记录了完整请求体，含敏感字段',
+      description: '错误处理中 logger.error(str(request)) 会把完整请求体写入日志，可能包含用户密码、token 等隐私数据。',
+      why_it_matters: '日志文件通常权限较宽松，可能被非授权人员访问，导致隐私泄露。',
       ai_trap: null,
-      suggestion: "补充使用 threading.Thread 的并发刷新测试，以及使用 fakeredis 模拟 Redis 故障的降级测试。",
-      suggestion_code: null
-    },
-    {
-      severity: "LOW",
-      category: "代码质量",
-      file: "utils/token.py",
-      line: 23,
-      title: "generate_token() 使用了不安全的随机源",
-      description: "token 生成使用 random.hex() 而非 secrets.token_urlsafe()，在安全场景中不应使用伪随机数生成器。",
-      why_it_matters: "Python 的 random 模块不是加密安全的随机数生成器，理论上可被预测。",
-      ai_trap: null,
-      suggestion: "替换为 secrets.token_urlsafe(32) 生成加密安全的随机令牌。",
+      suggestion: '在记录日志前过滤掉 password、token、secret、key 等敏感字段，或只记录安全的请求元数据。',
       suggestion_code: null
     }
   ],
   quick_wins: [
-    "将 generate_token() 中的 random.hex() 替换为 secrets.token_urlsafe(32)",
-    "在 middleware/session.py 中区分 TokenExpiredError（401）与 TokenInvalidError（403）",
-    "为 refresh_token() 添加 Redis 分布式锁，消除竞态条件窗口",
-    "补充 pytest 并发测试：使用 threading.Thread 验证令牌轮转原子性",
-    "将 Redis 存储的 refresh_token 改为 HMAC-SHA256 签名值，避免明文暴露"
+    '将所有 SQL 查询改为参数化形式，消除注入风险',
+    '添加 .env.example 文件，说明必要的环境变量配置',
+    '为核心函数添加类型注解，提升可读性和 IDE 支持'
   ],
-  github_comment: null,
+  summary_change_type: 'feature',
+  core_change: '新增了基于 GPT-4 的代码生成模块，支持自然语言描述生成 Python 函数',
+  affected_modules: 'src/ai/, src/auth/, src/utils/logger.py',
+  what_changed: '引入 AI 代码生成功能，用户可通过描述需求自动生成代码片段并提交 PR',
+  github_comment: `## 🤖 X-Reviewer 代码审查报告
+
+**判断：REQUEST CHANGES** | 评分：5/10
+
+### 变更摘要
+- **变更类型：** 新功能
+- **核心改动：** 新增了基于 GPT-4 的代码生成模块，支持自然语言描述生成 Python 函数
+- **影响模块：** \`src/ai/\`, \`src/auth/\`, \`src/utils/logger.py\`
+
+---
+
+### 🔴 HIGH 风险（1 项）
+**未验证 AI 输出导致 SQL 注入风险** · \`src/ai/generator.py:127\`
+> AI 生成的查询语句直接拼接用户输入，未做任何参数化处理。
+
+\`\`\`python
+cursor.execute(
+    'SELECT * FROM repos WHERE id = %s AND owner = %s',
+    (repo_id, owner_id)
+)
+\`\`\`
+
+### 🟡 MEDIUM 风险（1 项）
+**Token 有效期过长，无刷新机制** · \`src/auth/token.py:43\`
+> 建议缩短 access token 有效期到 1 小时，并实现 refresh token 机制。
+
+### 🟢 LOW 风险（1 项）
+**日志记录包含敏感字段** · \`src/utils/logger.py:89\`
+> 在记录日志前过滤掉 password、token、secret 等敏感字段。
+
+---
+
+### ⚡ 快速改进
+→ 将所有 SQL 查询改为参数化形式，消除注入风险
+→ 添加 .env.example 说明必要的环境变量
+→ 为核心函数添加类型注解
+
+---
+*由 X-Reviewer 自动生成 · 分析结果仅供参考，请结合实际情况判断*`,
   comment_url: null
 };
 
-const TYPE_MAP = { feature:'新功能', bugfix:'Bug 修复', refactor:'重构', dependency:'依赖升级', other:'其他' };
+/* ── State ──────────────────────────────────────────────────────────────── */
+let currentResult = null;
 
-const VERDICT_CONFIG = {
-  APPROVE:         { cls:'approve', emoji:'✅', label:'建议合并',    labelCls:'approve' },
-  REQUEST_CHANGES: { cls:'changes', emoji:'🚫', label:'请修复后合并', labelCls:'changes' },
-  COMMENT:         { cls:'comment', emoji:'💬', label:'待进一步讨论', labelCls:'comment' }
-};
+const $ = id => document.getElementById(id);
 
-function scoreColor(i, score) {
-  if (i > score) return '#D6CFC4';
-  if (score <= 3) return '#A44A3F';
-  if (score <= 6) return '#B45309';
-  return '#3D7A4A';
-}
+/* ── Checkbox ────────────────────────────────────────────────────────────── */
+const cbLabel = $('cb-label');
+const customCb = $('custom-cb');
+const postComment = $('post-comment');
 
-function buildScoreBar(score) {
-  const bar = document.getElementById('score-bar');
-  bar.innerHTML = '';
-  for (let i = 1; i <= 10; i++) {
-    const b = document.createElement('div');
-    b.className = 'score-block';
-    b.style.background = scoreColor(i, score);
-    bar.appendChild(b);
+cbLabel.addEventListener('click', () => {
+  postComment.checked = !postComment.checked;
+  customCb.classList.toggle('checked', postComment.checked);
+  customCb.textContent = postComment.checked ? '✓' : '';
+});
+
+/* ── State Switcher ──────────────────────────────────────────────────────── */
+function setState(state, result = null) {
+  $('empty-state').classList.add('hidden');
+  $('loading-state').classList.add('hidden');
+  $('error-state').classList.add('hidden');
+  $('result-area').classList.add('hidden');
+
+  if (state === 'empty') {
+    $('empty-state').classList.remove('hidden');
+  } else if (state === 'loading') {
+    $('loading-state').classList.remove('hidden');
+  } else if (state === 'error') {
+    $('error-state').classList.remove('hidden');
+  } else if (state === 'result') {
+    $('result-area').classList.remove('hidden');
+    $('result-area').classList.add('fade-in');
+    setTimeout(() => $('result-area').classList.remove('fade-in'), 400);
+    if (result) renderResult(result);
   }
 }
 
-function escapeHTML(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+/* ── Loading Steps Animation ─────────────────────────────────────────────── */
+function animateSteps(onDone) {
+  const steps = [$('step-1'), $('step-2'), $('step-3')];
+  const labels = ['获取 PR 变更内容', 'AI 风险扫描', '生成审查报告'];
+  const icons  = { waiting: '—', active: '◆', done: '✓' };
+  let i = 0;
+
+  function tick() {
+    // mark previous done
+    if (i > 0) {
+      const prev = steps[i - 1];
+      prev.className = 'step done';
+      prev.querySelector('.step-icon').textContent = icons.done;
+      prev.querySelector('span:last-child').textContent = labels[i - 1];
+    }
+    if (i >= steps.length) { onDone(); return; }
+    const cur = steps[i];
+    cur.className = 'step active';
+    cur.querySelector('.step-icon').textContent = icons.active;
+    cur.querySelector('span:last-child').textContent = labels[i];
+    i++;
+    const delay = i === 1 ? 900 : i === 2 ? 1800 : 1200;
+    setTimeout(tick, delay);
+  }
+  tick();
 }
 
-function buildRiskCard(risk, idx, defaultOpen) {
-  const cls = risk.severity.toLowerCase();
-  let bodyHTML = `<p class="risk-description">${risk.description}</p>`;
-  if (risk.why_it_matters) {
-    bodyHTML += `<div class="risk-reason-block why"><div class="risk-reason-label">为什么是问题</div><div class="risk-reason-text">${risk.why_it_matters}</div></div>`;
-  }
-  if (risk.ai_trap) {
-    bodyHTML += `<div class="risk-reason-block trap"><div class="risk-reason-label">AI 代码陷阱</div><div class="risk-reason-text">${risk.ai_trap}</div></div>`;
-  }
-  if (risk.suggestion_code) {
-    bodyHTML += `<div><div class="risk-fix-label">建议修复</div><div class="risk-code-block"><pre><code class="language-python">${escapeHTML(risk.suggestion_code)}</code></pre></div></div>`;
-  }
-  if (risk.suggestion && !risk.suggestion_code) {
-    bodyHTML += `<div class="risk-suggestion">${risk.suggestion}</div>`;
-  }
-  const collapsed = defaultOpen ? '' : 'collapsed';
-  const arrow = defaultOpen ? '▴' : '▾';
-  return `
-    <div class="risk-card ${cls}" id="risk-card-${idx}">
-      <div class="risk-header" onclick="toggleRisk(${idx})">
-        <div class="risk-dot"></div>
-        <div class="risk-title-text">${risk.title}</div>
-        <div class="risk-file">${risk.file} : ${risk.line}</div>
-        <div class="risk-chip">${risk.category}</div>
-        <div class="risk-toggle" id="risk-toggle-${idx}">${arrow}</div>
-      </div>
-      <div class="risk-body ${collapsed}" id="risk-body-${idx}">${bodyHTML}</div>
-    </div>`;
-}
+/* ── Analyze ─────────────────────────────────────────────────────────────── */
+const analyzeBtn = $('analyze-btn');
+const prInput = $('pr-input');
 
-function toggleRisk(idx) {
-  const body = document.getElementById(`risk-body-${idx}`);
-  const tog  = document.getElementById(`risk-toggle-${idx}`);
-  const isOpen = !body.classList.contains('collapsed');
-  if (isOpen) {
-    body.classList.add('collapsed');
-    tog.textContent = '▾';
-  } else {
-    body.classList.remove('collapsed');
-    tog.textContent = '▴';
-    body.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
-  }
-}
+function triggerAnalysis() {
+  const url = prInput.value.trim();
+  if (!url) { prInput.focus(); return; }
 
-function renderResults(data) {
-  const vc = VERDICT_CONFIG[data.verdict] || VERDICT_CONFIG.COMMENT;
-  const banner = document.getElementById('verdict-banner');
-  banner.className = `verdict-banner ${vc.cls}`;
-  document.getElementById('verdict-emoji').textContent = vc.emoji;
-  const vLabel = document.getElementById('verdict-label');
-  vLabel.textContent = vc.label;
-  vLabel.className = `verdict-label ${vc.labelCls}`;
-  document.getElementById('verdict-pr-title').innerHTML = `<a href="${data.pr_url}" target="_blank">${data.pr_title}</a>`;
-  document.getElementById('score-big').textContent = data.overall_score;
-  buildScoreBar(data.overall_score);
-  document.getElementById('stat-high').textContent   = data.risks.filter(r => r.severity==='HIGH').length;
-  document.getElementById('stat-medium').textContent = data.risks.filter(r => r.severity==='MEDIUM').length;
-  document.getElementById('stat-low').textContent    = data.risks.filter(r => r.severity==='LOW').length;
-  document.getElementById('summary-type').textContent    = TYPE_MAP[data.summary_change_type] || data.summary_change_type;
-  document.getElementById('summary-core').textContent    = data.summary_core_change;
-  document.getElementById('summary-modules').textContent = data.affected_modules;
-  document.getElementById('summary-what').textContent    = data.summary_what_changed;
-
-  const container = document.getElementById('risks-container');
-  container.innerHTML = '';
-  ['HIGH','MEDIUM','LOW'].forEach(sev => {
-    const items = data.risks.filter(r => r.severity === sev);
-    if (!items.length) return;
-    const g = document.createElement('div');
-    g.className = 'severity-group';
-    g.textContent = `${sev}  ·  ${items.length} 项`;
-    container.appendChild(g);
-    items.forEach(risk => {
-      const globalIdx = data.risks.indexOf(risk);
-      const defaultOpen = sev === 'HIGH';
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = buildRiskCard(risk, globalIdx, defaultOpen);
-      container.appendChild(wrapper.firstElementChild);
-      if (defaultOpen) {
-        document.getElementById(`risk-body-${globalIdx}`)
-          .querySelectorAll('pre code')
-          .forEach(el => hljs.highlightElement(el));
-      }
-    });
-  });
-
-  const qList = document.getElementById('quick-wins-list');
-  qList.innerHTML = '';
-  data.quick_wins.forEach(w => {
-    const li = document.createElement('li');
-    li.className = 'quick-win-item';
-    li.textContent = w;
-    qList.appendChild(li);
-  });
-
-  if (data.comment_url) {
-    document.getElementById('comment-notice').style.display = 'flex';
-    document.getElementById('comment-link').href = data.comment_url;
-  }
-
-  // 评论预览
-  if (data.github_comment) showCommentPreview(data.github_comment);
-
-  // 保存历史
-  saveHistory(data);
-}
-
-function setStep(stepId, state) {
-  const el = document.getElementById(stepId);
-  const prefix = el.querySelector('.step-prefix');
-  el.className = 'loading-step';
-  if (state === 'done')   { el.classList.add('step-done');   prefix.textContent = '✓'; }
-  else if (state === 'active') { el.classList.add('step-active'); prefix.textContent = '◆'; }
-  else                    { el.classList.add('step-wait');   prefix.textContent = '—'; }
-}
-
-function startAnalysis() {
-  const input = document.getElementById('pr-input');
-  const btn   = document.getElementById('analyze-btn');
-  const url   = input.value.trim();
-  const prPattern = /^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
-
-  if (!url || !prPattern.test(url)) {
-    document.getElementById('error-msg').textContent = url
-      ? '请输入有效的 GitHub PR 地址（格式：https://github.com/owner/repo/pull/123）'
-      : '请输入 GitHub PR 地址';
-    document.getElementById('error-state').classList.add('visible');
+  // Simple URL validation
+  if (!url.startsWith('http') || !url.includes('github.com')) {
+    $('error-msg').textContent = '请输入有效的 GitHub PR 链接（例如 https://github.com/owner/repo/pull/123）';
+    setState('error');
     return;
   }
 
-  document.getElementById('error-state').classList.remove('visible');
-  document.getElementById('empty-state').style.display = 'none';
-  document.getElementById('results-section').classList.remove('visible','fade-in');
+  analyzeBtn.textContent = '分析中…';
+  analyzeBtn.classList.add('is-loading');
+  analyzeBtn.disabled = true;
 
-  const loading = document.getElementById('loading-state');
-  loading.classList.add('visible');
-  setStep('step-1','wait'); setStep('step-2','wait'); setStep('step-3','wait');
-  btn.disabled = true;
-  btn.textContent = '分析中…';
+  // Reset loading steps
+  [$('step-1'), $('step-2'), $('step-3')].forEach((s, i) => {
+    s.className = 'step waiting';
+    s.querySelector('.step-icon').textContent = '—';
+    s.querySelector('span:last-child').textContent = ['获取 PR 变更内容','AI 风险扫描','生成审查报告'][i];
+  });
 
-  setTimeout(() => setStep('step-1','active'), 50);
-  setTimeout(() => { setStep('step-1','done'); setStep('step-2','active'); }, 800);
-  setTimeout(() => { setStep('step-2','done'); setStep('step-3','active'); }, 2200);
+  setState('loading');
 
-  const postComment = document.getElementById('post-comment')?.checked || false;
+  const postCommentEl = document.getElementById('post-comment');
+  const shouldPost = postCommentEl ? postCommentEl.checked : false;
+
+  // Start steps animation while fetch runs in parallel
+  animateSteps(() => {});
 
   fetch('/analyze', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pr_url: url, post_comment: postComment }),
+    body: JSON.stringify({ pr_url: url, post_comment: shouldPost }),
   })
   .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || 'API 错误')))
   .then(data => {
-    setStep('step-3','done');
-    setTimeout(() => {
-      loading.classList.remove('visible');
-      renderResults(data);
-      const results = document.getElementById('results-section');
-      results.classList.add('visible');
-      requestAnimationFrame(() => requestAnimationFrame(() => results.classList.add('fade-in')));
-      btn.disabled = false;
-      btn.textContent = '开始分析';
-    }, 400);
+    analyzeBtn.textContent = '分析';
+    analyzeBtn.classList.remove('is-loading');
+    analyzeBtn.disabled = false;
+
+    // Map API response to the shape renderResult expects
+    currentResult = {
+      pr_url:             data.pr_url,
+      pr_title:           data.pr_title,
+      verdict:            data.verdict,
+      overall_score:      data.overall_score,
+      summary_change_type: data.summary_change_type,
+      core_change:        data.summary_core_change,
+      affected_modules:   Array.isArray(data.affected_modules) ? data.affected_modules.join('、') : (data.affected_modules || ''),
+      what_changed:       data.summary_what_changed,
+      risks:              data.risks || [],
+      quick_wins:         data.quick_wins || [],
+      github_comment:     data.github_comment || '',
+      comment_url:        data.comment_url || null,
+    };
+
+    setState('result', currentResult);
+
+    if (data.comment_url) {
+      $('comment-notification').classList.remove('hidden');
+      $('comment-link').href = data.comment_url;
+    } else {
+      $('comment-notification').classList.add('hidden');
+    }
+
+    saveHistory(currentResult);
   })
   .catch(err => {
-    loading.classList.remove('visible');
-    document.getElementById('error-msg').textContent = '分析失败：' + err;
-    document.getElementById('error-state').classList.add('visible');
-    btn.disabled = false;
-    btn.textContent = '开始分析';
+    analyzeBtn.textContent = '分析';
+    analyzeBtn.classList.remove('is-loading');
+    analyzeBtn.disabled = false;
+    $('error-msg').textContent = '分析失败：' + err;
+    setState('error');
   });
 }
 
-document.getElementById('pr-input').addEventListener('keydown', e => { if (e.key === 'Enter') startAnalysis(); });
-document.getElementById('pr-input').addEventListener('input', () => {
-  document.getElementById('error-state').classList.remove('visible');
+analyzeBtn.addEventListener('click', triggerAnalysis);
+prInput.addEventListener('keydown', e => { if (e.key === 'Enter') triggerAnalysis(); });
+
+/* ── Render Result ───────────────────────────────────────────────────────── */
+const VERDICT_MAP = {
+  APPROVE:          { emoji: '✅', label: '建议合并', color: 'var(--success)' },
+  REQUEST_CHANGES:  { emoji: '❌', label: '需要修改', color: 'var(--danger)'  },
+  COMMENT:          { emoji: '💬', label: '已评论',   color: 'var(--warning)' }
+};
+
+const CHANGE_TYPE_MAP = {
+  feature: '新功能', bugfix: 'Bug 修复', refactor: '重构',
+  dependency: '依赖升级', other: '其他'
+};
+
+const SEV = {
+  HIGH:   { color: 'var(--danger)',  dot: 'var(--danger)',  icon: '🔴', label: 'HIGH 高风险'   },
+  MEDIUM: { color: 'var(--warning)', dot: 'var(--warning)', icon: '🟡', label: 'MEDIUM 中风险' },
+  LOW:    { color: 'var(--success)', dot: 'var(--success)', icon: '🟢', label: 'LOW 低风险'    }
+};
+
+function renderResult(r) {
+  // Verdict
+  const vInfo = VERDICT_MAP[r.verdict] || VERDICT_MAP.COMMENT;
+  $('verdict-bar').style.background = vInfo.color;
+  $('verdict-icon').textContent = vInfo.emoji;
+  $('verdict-label').textContent = vInfo.label;
+  $('verdict-label').style.color = vInfo.color;
+  const pLink = $('verdict-pr-link');
+  pLink.textContent = r.pr_title;
+  pLink.href = r.pr_url;
+
+  // Score
+  $('score-num').textContent = r.overall_score;
+  const pips = $('score-pips');
+  pips.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'pip';
+    if (i <= r.overall_score) {
+      pip.classList.add(i <= 3 ? 'danger' : i <= 6 ? 'warning' : 'success');
+    } else {
+      pip.classList.add('empty');
+    }
+    pips.appendChild(pip);
+  }
+
+  // Stats
+  const high = r.risks.filter(x => x.severity === 'HIGH').length;
+  const med  = r.risks.filter(x => x.severity === 'MEDIUM').length;
+  const low  = r.risks.filter(x => x.severity === 'LOW').length;
+  $('stat-high').textContent = high;
+  $('stat-med').textContent = med;
+  $('stat-low').textContent = low;
+
+  // Summary
+  $('sum-type').textContent = CHANGE_TYPE_MAP[r.summary_change_type] || r.summary_change_type;
+  $('sum-core').textContent = r.core_change;
+  $('sum-modules').textContent = r.affected_modules;
+  $('sum-what').textContent = r.what_changed;
+
+  // Risks
+  const container = $('risks-container');
+  container.innerHTML = '';
+  const groups = ['HIGH', 'MEDIUM', 'LOW'];
+  groups.forEach(sev => {
+    const items = r.risks.filter(x => x.severity === sev);
+    if (!items.length) return;
+    const s = SEV[sev];
+    const group = document.createElement('div');
+    group.className = 'risk-group';
+    group.innerHTML = `
+      <div class="risk-group-hd">
+        <div class="group-dot" style="background:${s.dot}"></div>
+        <div class="group-label" style="color:${s.color}">${s.label}</div>
+      </div>`;
+    items.forEach(risk => {
+      group.appendChild(buildRiskCard(risk, sev === 'HIGH'));
+    });
+    container.appendChild(group);
+  });
+
+  // Quick wins
+  const ql = $('quick-list');
+  ql.innerHTML = '';
+  r.quick_wins.forEach(w => {
+    const item = document.createElement('div');
+    item.className = 'quick-item';
+    item.innerHTML = `<span class="quick-arrow">→</span><span>${w}</span>`;
+    ql.appendChild(item);
+  });
+
+  // Comment preview
+  $('preview-content').textContent = r.github_comment;
+}
+
+function buildRiskCard(risk, defaultOpen) {
+  const s = SEV[risk.severity];
+  const card = document.createElement('div');
+  card.className = 'risk-card';
+
+  const fileLabel = risk.line ? `${risk.file}:${risk.line}` : risk.file;
+
+  card.innerHTML = `
+    <div class="risk-header" role="button" tabindex="0" aria-expanded="${defaultOpen}">
+      <div class="risk-sev-bar" style="background:${s.color}"></div>
+      <div class="risk-icon">${s.icon}</div>
+      <div class="risk-title-text">${risk.title}</div>
+      <div class="risk-file">${fileLabel}</div>
+      <div class="risk-cat-pill">${risk.severity}</div>
+      <span class="risk-chevron${defaultOpen ? ' open' : ''}">▾</span>
+    </div>
+    <div class="risk-body${defaultOpen ? ' open' : ''}">
+      <div class="risk-desc">${risk.description}</div>
+      ${risk.why_it_matters ? `
+        <div class="inset-card">
+          <div class="inset-label" style="color:var(--accent)">为什么是问题</div>
+          <p>${risk.why_it_matters}</p>
+        </div>` : ''}
+      ${risk.ai_trap ? `
+        <div class="inset-card">
+          <div class="inset-label" style="color:var(--warning)">AI 代码陷阱</div>
+          <p>${risk.ai_trap}</p>
+        </div>` : ''}
+      ${risk.suggestion_code ? `
+        <div class="code-wrap-label">建议修复</div>
+        <div class="code-wrap">
+          <pre><code class="language-python">${escHtml(risk.suggestion_code)}</code></pre>
+          <button class="copy-code-btn" data-code="${escAttr(risk.suggestion_code)}">复制</button>
+        </div>` : ''}
+      ${risk.suggestion && !risk.suggestion_code ? `
+        <div class="text-suggestion">
+          <span>→</span><span>${risk.suggestion}</span>
+        </div>` : ''}
+    </div>`;
+
+  // Toggle
+  const header = card.querySelector('.risk-header');
+  const body   = card.querySelector('.risk-body');
+  const chev   = card.querySelector('.risk-chevron');
+
+  function toggle() {
+    const open = body.classList.toggle('open');
+    chev.classList.toggle('open', open);
+    header.setAttribute('aria-expanded', open);
+    // Highlight code when opened
+    if (open) {
+      card.querySelectorAll('pre code').forEach(el => {
+        if (!el.dataset.highlighted) hljs.highlightElement(el);
+      });
+    }
+  }
+
+  header.addEventListener('click', toggle);
+  header.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+
+  // If defaultOpen, highlight immediately after DOM insert
+  if (defaultOpen) {
+    requestAnimationFrame(() => {
+      card.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+    });
+  }
+
+  // Copy code buttons
+  card.querySelectorAll('.copy-code-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(btn.dataset.code).then(() => {
+        btn.textContent = '已复制';
+        setTimeout(() => btn.textContent = '复制', 2000);
+      });
+    });
+  });
+
+  return card;
+}
+
+/* ── Copy Comment ────────────────────────────────────────────────────────── */
+$('copy-comment-btn').addEventListener('click', () => {
+  const btn = $('copy-comment-btn');
+  const text = $('preview-content').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '已复制 ✓';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = '复制';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
 });
 
-// ── 评论预览 ──────────────────────────────────────────────────────
-let _lastComment = '';
+/* ── History ─────────────────────────────────────────────────────────────── */
+const HIST_KEY = 'xreviewer_history';
 
-function showCommentPreview(comment) {
-  _lastComment = comment;
-  const el = document.getElementById('github-comment-preview');
-  if (el) el.textContent = comment;
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; }
+  catch { return []; }
 }
 
-function copyComment() {
-  if (!_lastComment) return;
-  navigator.clipboard.writeText(_lastComment).then(() => {
-    const btn = document.getElementById('copy-btn');
-    const orig = btn.textContent;
-    btn.textContent = '已复制 ✓';
-    btn.style.background = '#3D7A4A';
-    setTimeout(() => { btn.textContent = orig; btn.style.background = 'var(--primary)'; }, 2000);
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = _lastComment;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  });
-}
-
-// ── 历史记录 ──────────────────────────────────────────────────────
-const HISTORY_KEY = 'pr_review_history';
-const MAX_HISTORY = 5;
-
-function saveHistory(data) {
-  try {
-    const history = getHistory();
-    const entry = {
-      pr_url:       data.pr_url,
-      pr_title:     data.pr_title,
-      verdict:      data.verdict,
-      overall_score: data.overall_score,
-      high_count:   data.risks.filter(r => r.severity === 'HIGH').length,
-      analyzed_at:  new Date().toLocaleString('zh-CN'),
-      data:         data,
-    };
-    const updated = [entry, ...history.filter(h => h.pr_url !== data.pr_url)].slice(0, MAX_HISTORY);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
-    renderHistory();
-  } catch(e) {}
-}
-
-function getHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
-  catch(e) { return []; }
-}
-
-function clearHistory() {
-  localStorage.removeItem(HISTORY_KEY);
+function saveHistory(result) {
+  const hist = loadHistory();
+  const entry = {
+    id: Date.now(),
+    ts: new Date().toLocaleString('zh-CN', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }),
+    pr_title: result.pr_title,
+    pr_url: result.pr_url,
+    verdict: result.verdict,
+    score: result.overall_score,
+    high: result.risks.filter(x => x.severity === 'HIGH').length,
+    result: result
+  };
+  hist.unshift(entry);
+  if (hist.length > 10) hist.pop();
+  localStorage.setItem(HIST_KEY, JSON.stringify(hist));
   renderHistory();
 }
 
 function renderHistory() {
-  const history = getHistory();
-  const section = document.getElementById('history-section');
-  const list    = document.getElementById('history-list');
-  if (!history.length) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  const vc = { APPROVE:'✅', REQUEST_CHANGES:'🚫', COMMENT:'💬' };
-  list.innerHTML = history.map(h => `
-    <div style="background:#fff;border:1px solid var(--border);padding:14px 18px;
-                margin-bottom:8px;display:flex;align-items:center;gap:16px;cursor:pointer"
-         onclick="loadFromHistory('${encodeURIComponent(h.pr_url)}')"
-         onmouseover="this.style.borderColor='var(--primary)'"
-         onmouseout="this.style.borderColor='var(--border)'">
-      <span style="font-size:18px">${vc[h.verdict]||'—'}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-family:var(--font-sans);font-size:14px;color:var(--primary);
-                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${h.pr_title||h.pr_url}</div>
-        <div style="font-size:12px;color:var(--info);margin-top:2px">${h.analyzed_at}</div>
+  const hist = loadHistory();
+  const section = $('history-section');
+  const list = $('history-list');
+
+  if (!hist.length) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+  list.innerHTML = '';
+
+  hist.forEach(entry => {
+    const vInfo = VERDICT_MAP[entry.verdict] || VERDICT_MAP.COMMENT;
+    const item = document.createElement('div');
+    item.className = 'hist-item';
+    item.innerHTML = `
+      <div class="hist-icon">${vInfo.emoji}</div>
+      <div class="hist-info">
+        <div class="hist-title">${entry.pr_title || entry.pr_url}</div>
+        <div class="hist-time">${entry.ts}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-family:var(--font-serif);font-size:20px;color:var(--primary)">${h.overall_score}/10</div>
-        <div style="font-size:11px;color:#A44A3F">${h.high_count} HIGH</div>
-      </div>
-    </div>
-  `).join('');
+      <div class="hist-meta">
+        <div class="hist-score">${entry.score}/10</div>
+        ${entry.high > 0 ? `<div class="hist-high">HIGH ×${entry.high}</div>` : ''}
+      </div>`;
+    item.addEventListener('click', () => {
+      prInput.value = entry.pr_url;
+      currentResult = entry.result;
+      setState('result', entry.result);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    list.appendChild(item);
+  });
 }
 
-function loadFromHistory(encodedUrl) {
-  const url = decodeURIComponent(encodedUrl);
-  const history = getHistory();
-  const entry = history.find(h => h.pr_url === url);
-  if (!entry) return;
-  document.getElementById('pr-input').value = url;
-  document.getElementById('empty-state').style.display = 'none';
-  renderResults(entry.data);
-  const results = document.getElementById('results-section');
-  results.classList.add('visible');
-  requestAnimationFrame(() => requestAnimationFrame(() => results.classList.add('fade-in')));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+$('clear-history-btn').addEventListener('click', () => {
+  localStorage.removeItem(HIST_KEY);
+  renderHistory();
+});
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return s.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// ── 初始化 ────────────────────────────────────────────────────────
+/* ── Init ────────────────────────────────────────────────────────────────── */
+setState('empty');
 renderHistory();
 </script>
-
-
-<script data-od-snapshot-bridge="">(function(){
-  function copyComputedStyle(source, target){
-    if (!source || !target || source.nodeType !== 1 || target.nodeType !== 1) return;
-    var computed = window.getComputedStyle(source);
-    var style = target.getAttribute('style') || '';
-    for (var i = 0; i < computed.length; i++){
-      var prop = computed[i];
-      style += prop + ':' + computed.getPropertyValue(prop) + ';';
-    }
-    target.setAttribute('style', style);
-  }
-  function syncElementState(source, target){
-    var tag = source.tagName ? source.tagName.toLowerCase() : '';
-    if (tag === 'img' && source.currentSrc) target.setAttribute('src', source.currentSrc);
-    if (tag === 'input' || tag === 'textarea') target.setAttribute('value', source.value || '');
-    if (tag === 'canvas') {
-      try {
-        var img = document.createElement('img');
-        img.setAttribute('src', source.toDataURL('image/png'));
-        img.setAttribute('style', target.getAttribute('style') || '');
-        target.parentNode && target.parentNode.replaceChild(img, target);
-      } catch (_) {}
-    }
-  }
-  function inlineSnapshotStyles(originalRoot, cloneRoot){
-    copyComputedStyle(originalRoot, cloneRoot);
-    syncElementState(originalRoot, cloneRoot);
-    var originals = originalRoot.querySelectorAll('*');
-    var clones = cloneRoot.querySelectorAll('*');
-    var count = Math.min(originals.length, clones.length);
-    for (var i = 0; i < count; i++){
-      copyComputedStyle(originals[i], clones[i]);
-      syncElementState(originals[i], clones[i]);
-    }
-    var scripts = cloneRoot.querySelectorAll('script');
-    for (var s = scripts.length - 1; s >= 0; s--) scripts[s].remove();
-  }
-  function waitForImages(){
-    var imgs = Array.prototype.slice.call(document.images || []);
-    return Promise.all(imgs.map(function(img){
-      if (img.complete) return Promise.resolve();
-      return new Promise(function(resolve){
-        img.addEventListener('load', resolve, { once: true });
-        img.addEventListener('error', resolve, { once: true });
-      });
-    }));
-  }
-  function renderSnapshot(id){
-    var w = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1);
-    var h = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
-    var dpr = window.devicePixelRatio || 1;
-    var docW = Math.max(w, document.documentElement.scrollWidth || 0, document.body ? document.body.scrollWidth : 0);
-    var docH = Math.max(h, document.documentElement.scrollHeight || 0, document.body ? document.body.scrollHeight : 0);
-    var clone = document.documentElement.cloneNode(true);
-    clone.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-    inlineSnapshotStyles(document.documentElement, clone);
-    var serializer = new XMLSerializer();
-    var html = serializer.serializeToString(clone);
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '">' +
-      '<foreignObject x="' + (-window.scrollX || 0) + '" y="' + (-window.scrollY || 0) + '" width="' + docW + '" height="' + docH + '">' +
-      html +
-      '</foreignObject></svg>';
-    var img = new Image();
-    img.onload = function(){
-      try {
-        var canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.floor(w * dpr));
-        canvas.height = Math.max(1, Math.floor(h * dpr));
-        var ctx = canvas.getContext('2d');
-        if (!ctx) throw new Error('no 2d context');
-        ctx.scale(dpr, dpr);
-        ctx.drawImage(img, 0, 0, w, h);
-        window.parent.postMessage({ type: 'od:snapshot:result', id: id, dataUrl: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height }, '*');
-      } catch (err) {
-        window.parent.postMessage({ type: 'od:snapshot:result', id: id, error: String(err && err.message || err) }, '*');
-      }
-    };
-    img.onerror = function(){
-      window.parent.postMessage({ type: 'od:snapshot:result', id: id, error: 'snapshot image failed' }, '*');
-    };
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-  }
-  window.addEventListener('message', function(ev){
-    var data = ev && ev.data;
-    if (!data || data.type !== 'od:snapshot' || !data.id) return;
-    waitForImages().then(function(){ renderSnapshot(String(data.id)); });
-  });
-})();</script><script data-od-srcdoc-transport-activation="">(function(){
-  window.addEventListener('message', function(ev){
-    var data = ev && ev.data;
-    if (!data || data.type !== 'od:srcdoc-transport-activate' || typeof data.html !== 'string') return;
-    document.open();
-    document.write(data.html);
-    document.close();
-  });
-})();</script></body></html>
+</body>
+</html>
