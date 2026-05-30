@@ -22,6 +22,20 @@
 
 本项目是「七牛云 × XEngineer 暑期实训营 2026」竞赛作品，针对**题目三：AI PR Review 助手**开发。
 
+### 📂 项目文档导览
+
+| 文档 | 内容简述 |
+|------|---------|
+| [pr-review-prd-final.md](pr-review-prd-final.md) | 产品需求文档：用户画像（Vibe Coder）、痛点分析、用户故事与验收标准、成功指标定义 |
+| [engineering-spec.md](engineering-spec.md) | 工程化执行文档：Sprint 计划、技术选型决策、双层模型 Prompt 策略设计 |
+| [roadmap.md](roadmap.md) | 12周发布路线图：Alpha → Beta → v1.0，12个 Epic 优先级矩阵与里程碑 |
+| [product-strategy.md](product-strategy.md) | 产品战略：竞品全景分析、差异化定位图、GTM 冷启动策略、增长飞轮设计 |
+| [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | **系统设计说明（竞赛硬性要求）**：模型选择理由、上下文获取优先级、误报控制机制、未来扩展方向 |
+| [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md) | 商业可行性分析：TAM $3.6亿、单次成本 $0.02–0.05、LTV/CAC >7x、12个月财务预测与 Go/No-Go 判断 |
+| [eval/EVAL_REPORT.md](eval/EVAL_REPORT.md) | 100用例评测报告：修复前 65% → 修复后 **78%**，误报/漏报完整归因（4类根因）与错误数据集 |
+
+---
+
 ### 为什么做这个工具？
 
 2025-2026 年，Vibe Coder 群体爆发式增长——这批开发者依赖 Cursor / Copilot / Claude 生成大量代码，但**缺乏识别 AI 生成代码隐患的经验**。
