@@ -1,4 +1,4 @@
-# PRD：AI PR Review 助手（Vibe Coder Edition）
+# PRD：X-Reviewer（Vibe Coder Edition）
 
 **版本：** v1.1（PRD Development 正式版）
 **日期：** 2026-05-29
@@ -161,7 +161,7 @@ AI 双层分析
 ### 5.3 GitHub PR 评论格式
 
 ```markdown
-## 🤖 AI PR Review — 变更摘要
+## 🤖 X-Reviewer — 变更摘要
 
 **改动范围：** 3 个文件，+127 / -43 行
 **变更类型：** 重构（安全模块）

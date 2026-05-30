@@ -1,4 +1,4 @@
-# AI PR Review 测试报告
+# X-Reviewer 测试报告
 
 **测试时间：** 2026-05-29 20:42
 **测试仓库：** https://github.com/vigariokoestner958-droid/pr-review-test
@@ -11,7 +11,7 @@
 **标题：** feat: add user API and password reset
 **链接：** https://github.com/vigariokoestner958-droid/pr-review-test/pull/1
 
-## 🤖 AI PR Review
+## 🤖 X-Reviewer
 
 **🚫 请修复后再合并** &nbsp;|&nbsp; 质量评分：`███░░░░░░░` 3/10
 
@@ -162,7 +162,7 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", "users.db")
 
 </details>
 
-*由 AI PR Review 助手生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
+*由 X-Reviewer 生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
 
 ---
 
@@ -171,7 +171,7 @@ DATABASE_PATH = os.environ.get("DATABASE_PATH", "users.db")
 **标题：** feat: add frontend search and user config loader
 **链接：** https://github.com/vigariokoestner958-droid/pr-review-test/pull/2
 
-## 🤖 AI PR Review
+## 🤖 X-Reviewer
 
 **🚫 请修复后再合并** &nbsp;|&nbsp; 质量评分：`███░░░░░░░` 3/10
 
@@ -266,7 +266,7 @@ return fetch(`/api/users/${safeId}/data`);
 
 </details>
 
-*由 AI PR Review 助手生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
+*由 X-Reviewer 生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
 
 ---
 
@@ -275,7 +275,7 @@ return fetch(`/api/users/${safeId}/data`);
 **标题：** feat: add user database module
 **链接：** https://github.com/vigariokoestner958-droid/pr-review-test/pull/3
 
-## 🤖 AI PR Review
+## 🤖 X-Reviewer
 
 **🚫 请修复后再合并** &nbsp;|&nbsp; 质量评分：`██░░░░░░░░` 2/10
 
@@ -388,7 +388,7 @@ conn = sqlite3.connect('app.db')  # 模块级
 
 </details>
 
-*由 AI PR Review 助手生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
+*由 X-Reviewer 生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
 
 ---
 
@@ -397,7 +397,7 @@ conn = sqlite3.connect('app.db')  # 模块级
 **标题：** feat: add post feed and notification service
 **链接：** https://github.com/vigariokoestner958-droid/pr-review-test/pull/4
 
-## 🤖 AI PR Review
+## 🤖 X-Reviewer
 
 **🚫 请修复后再合并** &nbsp;|&nbsp; 质量评分：`██░░░░░░░░` 2/10
 
@@ -510,7 +510,7 @@ followers = db.query('SELECT follower_id FROM followers WHERE user_id=%s', (user
 
 </details>
 
-*由 AI PR Review 助手生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
+*由 X-Reviewer 生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
 
 ---
 
@@ -519,7 +519,7 @@ followers = db.query('SELECT follower_id FROM followers WHERE user_id=%s', (user
 **标题：** feat: add input validation and utility functions
 **链接：** https://github.com/vigariokoestner958-droid/pr-review-test/pull/5
 
-## 🤖 AI PR Review
+## 🤖 X-Reviewer
 
 **💬 供参考，最终由你决定** &nbsp;|&nbsp; 质量评分：`███████░░░` 7/10
 
@@ -588,6 +588,6 @@ if page < 1 or page_size < 1:\n    raise ValueError('page and page_size must be 
 
 </details>
 
-*由 AI PR Review 助手生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
+*由 X-Reviewer 生成 · [👍 有帮助](https://github.com) · [👎 不准确](https://github.com)*
 
 ---

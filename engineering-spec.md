@@ -1,4 +1,4 @@
-# 工程化执行文档：AI PR Review 助手 MVP
+# 工程化执行文档：X-Reviewer MVP
 
 > 基于 pr-review-prd-final.md · 技术原则：轻量 / 快速出效果 / 容易录制 Demo
 
@@ -188,9 +188,9 @@ if (!secret) throw new Error('JWT_SECRET is required');
 
 **Open Design 前端生成 Prompt 模板：**
 ```
-设计一个 AI PR Review 工具的 Web 界面。
+设计一个 X-Reviewer 的 Web 界面。
 主要功能：
-- 顶部标题区：「AI PR Review」Logo + 副标题「为 Vibe Coder 设计的代码审查助手」
+- 顶部标题区：「X-Reviewer」Logo + 副标题「为 Vibe Coder 设计的代码审查助手」
 - 输入区：一个文本框（placeholder: 粘贴 GitHub PR URL，如 https://github.com/owner/repo/pull/123）
   + 一个「开始分析」按钮
 - 分析中状态：Loading 动画 + 进度文案（「正在获取代码变更...」「AI 分析中...」）
