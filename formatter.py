@@ -31,12 +31,13 @@ def _header(pr: PRData, result: AnalysisResult) -> str:
     verdict_e = VERDICT_EMOJI[result.verdict]
     verdict_t = VERDICT_TEXT[result.verdict]
     score = result.overall_score
-    score_bar = "█" * score + "░" * (10 - score)
+    high = sum(1 for r in result.risks if r.severity == "HIGH")
+    med  = sum(1 for r in result.risks if r.severity == "MEDIUM")
+    low  = sum(1 for r in result.risks if r.severity == "LOW")
+    risk_summary = f"🔴×{high} 🟡×{med} 🟢×{low}" if result.risks else "✅ 无风险"
     return (
-        f"## 🤖 X-Reviewer\n\n"
-        f"**{verdict_e} {verdict_t}** &nbsp;|&nbsp; "
-        f"质量评分：`{score_bar}` {score}/10\n\n"
-        f"---"
+        f"## X-Reviewer &nbsp; {verdict_e} {verdict_t} &nbsp; `{score}/10`\n\n"
+        f"{risk_summary}"
     )
 
 
@@ -50,60 +51,49 @@ def _summary_section(result: AnalysisResult) -> str:
         "refactor": "重构", "dependency": "依赖升级", "other": "其他",
     }
     ctype = change_type_map.get(s.change_type, s.change_type)
-    return (
-        f"### 📋 变更摘要\n\n"
-        f"| 维度 | 内容 |\n"
-        f"|------|------|\n"
-        f"| 变更类型 | {ctype} |\n"
-        f"| 核心改动 | {s.core_change} |\n"
-        f"| 影响模块 | {modules} |\n"
-        f"| 一句话 | {s.what_changed} |"
-    )
+    return f"> **{ctype}** `{modules}` — {s.core_change}"
 
 
 def _risks_section(result: AnalysisResult) -> str:
     if not result.risks:
-        return "### ✅ 风险扫描\n\n未发现明显风险，代码看起来不错！"
+        return "---\n\n✅ 未发现明显风险。"
 
-    # Group by severity
     by_sev: dict[str, list[Risk]] = {"HIGH": [], "MEDIUM": [], "LOW": []}
     for r in result.risks:
         by_sev.setdefault(r.severity, []).append(r)
 
-    lines = ["### ⚠️ 风险评估\n"]
+    lines = ["---"]
     for sev in ["HIGH", "MEDIUM", "LOW"]:
         risks = by_sev[sev]
         if not risks:
             continue
         emoji = SEVERITY_EMOJI[sev]
-        lines.append(f"#### {emoji} {sev}（{len(risks)} 项）\n")
+        lines.append(f"\n**{emoji} {sev}（{len(risks)}）**\n")
         for r in risks:
             lines.append(_risk_block(r))
 
     if result.quick_wins:
-        lines.append("### 💡 快速改进\n")
-        for qw in result.quick_wins:
-            lines.append(f"- {qw}")
+        lines.append("\n---\n")
+        lines.append("**待处理：** " + " · ".join(result.quick_wins))
 
     return "\n".join(lines)
 
 
 def _risk_block(r: Risk) -> str:
-    loc = f"`{r.file}`" + (f":{r.line}" if r.line else "")
-    parts = [
-        f"**[{r.category}]** {loc} — {r.title}\n",
-        f"{r.description}\n",
-    ]
+    loc = f"`{r.file}:{r.line}`" if r.line else f"`{r.file}`"
+    # 合并描述和影响为一句话，去掉AI腔
+    detail = r.description
     if r.why_it_matters:
-        parts.append(f"> 📚 **为什么是问题：** {r.why_it_matters}\n")
-    if r.ai_trap:
-        parts.append(f"> ⚡ **AI 代码陷阱：** {r.ai_trap}\n")
+        # 只取第一句，避免啰嗦
+        first = r.why_it_matters.split("。")[0].strip().rstrip("，")
+        if first and first not in detail:
+            detail = f"{detail}（{first}）"
+    lines = [f"- {loc} **{r.title}** — {detail}"]
     if r.suggestion_code:
-        parts.append(f"```suggestion\n{r.suggestion_code}\n```\n")
+        lines.append(f"\n```suggestion\n{r.suggestion_code}\n```")
     elif r.suggestion:
-        parts.append(f"💡 **修复建议：** {r.suggestion}\n")
-    parts.append("---")
-    return "\n".join(parts)
+        lines.append(f"\n  > 修复：{r.suggestion}")
+    return "\n".join(lines)
 
 
 FEEDBACK_BASE_URL = os.getenv("FEEDBACK_BASE_URL", "http://localhost:8000")
