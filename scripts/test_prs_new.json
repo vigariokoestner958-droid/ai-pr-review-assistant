@@ -1,0 +1,56 @@
+[
+  {
+    "number": 6,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/6",
+    "title": "feat: add admin search endpoint",
+    "desc": "SQL注入：字符串拼接到查询"
+  },
+  {
+    "number": 7,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/7",
+    "title": "feat: add comment rendering",
+    "desc": "XSS：innerHTML直接插入用户输入"
+  },
+  {
+    "number": 8,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/8",
+    "title": "feat: add user signup",
+    "desc": "密码明文存储并打印到日志"
+  },
+  {
+    "number": 9,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/9",
+    "title": "feat: add admin delete API",
+    "desc": "管理接口无身份验证"
+  },
+  {
+    "number": 10,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/10",
+    "title": "feat: show post list with author info",
+    "desc": "N+1查询问题"
+  },
+  {
+    "number": 11,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/11",
+    "title": "feat: implement balance transfer",
+    "desc": "TOCTOU竞态+无事务保护"
+  },
+  {
+    "number": 12,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/12",
+    "title": "feat: add file download API",
+    "desc": "路径拼接未做规范化，可能路径遍历"
+  },
+  {
+    "number": 13,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/13",
+    "title": "feat: implement JWT verification",
+    "desc": "JWT alg:none绕过签名验证"
+  },
+  {
+    "number": 14,
+    "url": "https://github.com/vigariokoestner958-droid/pr-review-test/pull/14",
+    "title": "feat: add Redis session cache",
+    "desc": "pickle反序列化用户输入，可RCE"
+  }
+]
