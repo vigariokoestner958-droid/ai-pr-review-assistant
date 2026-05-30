@@ -497,5 +497,3 @@ GitHub 集成：GitHub Apps + Webhooks + REST API v3
 - **Enterprise**：私有化部署、合规审计、SAML SSO
 
 ---
-
-*本 PRD 由发现流程（Discovery Process）+ PRD Development 工作流生成，基于真实用户洞察和结构化产品思维。*
