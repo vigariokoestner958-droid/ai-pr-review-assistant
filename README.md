@@ -1,8 +1,8 @@
-# 🤖 AI PR Review 助手
+# 🤖 X-Reviewer
 
 > 为 Vibe Coder 设计的 GitHub Pull Request 智能代码审查工具
 >
-> **"AI 帮你写代码，我们帮你 Review AI 写的代码。"**
+> **"AI 帮你写代码，X-Reviewer 帮你 Review AI 写的代码。"**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green)](https://fastapi.tiangolo.com/)

@@ -33,7 +33,7 @@ def _header(pr: PRData, result: AnalysisResult) -> str:
     score = result.overall_score
     score_bar = "█" * score + "░" * (10 - score)
     return (
-        f"## 🤖 AI PR Review\n\n"
+        f"## 🤖 X-Reviewer\n\n"
         f"**{verdict_e} {verdict_t}** &nbsp;|&nbsp; "
         f"质量评分：`{score_bar}` {score}/10\n\n"
         f"---"
@@ -121,14 +121,14 @@ def _footer(result: AnalysisResult, pr_url: str = "") -> str:
         f"<details><summary>📊 统计</summary>\n\n"
         f"🔴 HIGH: {high_count} &nbsp; 🟡 MEDIUM: {med_count} &nbsp; 🟢 LOW: {low_count}\n\n"
         f"</details>\n\n"
-        f"*由 AI PR Review 助手生成 · "
+        f"*由 X-Reviewer 生成 · "
         f"[👍 有帮助]({up_url}) · [👎 不准确]({down_url})*"
     )
 
 
 def _skipped_comment(pr: PRData, reason: str) -> str:
     return (
-        f"## 🤖 AI PR Review\n\n"
+        f"## 🤖 X-Reviewer\n\n"
         f"⚠️ **无法分析此 PR**\n\n"
         f"{reason}\n\n"
         f"**建议：** 将此 PR 拆分为多个更小的 PR（每个聚焦一个功能点），"
@@ -150,7 +150,7 @@ def print_cli(pr: PRData, result: AnalysisResult):
         print(to_github_comment(pr, result))
         return
 
-    console.print(f"\n[bold cyan]🤖 AI PR Review[/bold cyan] — {pr.title}")
+    console.print(f"\n[bold cyan]🤖 X-Reviewer[/bold cyan] — {pr.title}")
     console.print(f"[dim]{pr.url}[/dim]\n")
 
     if result.skipped:

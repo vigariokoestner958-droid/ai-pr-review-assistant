@@ -17,7 +17,7 @@ from monitoring import init_db, record_analysis, get_summary, get_daily_trend, \
 
 init_db()
 
-app = FastAPI(title="AI PR Review API", version="1.0.0")
+app = FastAPI(title="X-Reviewer API", version="1.0.0")
 
 DB_PATH = Path(__file__).parent / "feedback.db"
 
@@ -301,7 +301,7 @@ def stats():
 <html lang="zh-CN"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AI PR Review — 监控看板</title>
+<title>X-Reviewer — 监控看板</title>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500&family=Manrope:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
 <style>
   *{{box-sizing:border-box;margin:0;padding:0}}
@@ -330,7 +330,7 @@ def stats():
 </style>
 </head><body>
 <nav>
-  <span class="nav-title">AI PR Review — 监控看板</span>
+  <span class="nav-title">X-Reviewer — 监控看板</span>
   <div class="nav-links">
     <a href="/">← 返回主页</a>
     <a href="/api/metrics" target="_blank">JSON API</a>

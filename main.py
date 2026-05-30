@@ -18,7 +18,7 @@ load_dotenv()
 @click.option("--post/--dry-run", default=False,
               help="--post 将分析结果发布到 GitHub PR（默认 --dry-run 仅本地显示）")
 def main(pr_url: str, post: bool):
-    """AI PR Review 助手 — 输入 GitHub PR URL，获取 AI 代码审查。"""
+    """X-Reviewer — 输入 GitHub PR URL，获取 AI 代码审查。"""
     anthropic_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("AI_API_KEY")
     github_token  = os.getenv("GITHUB_TOKEN")
 
