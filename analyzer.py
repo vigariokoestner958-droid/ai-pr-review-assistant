@@ -109,6 +109,21 @@ _SUMMARY_USER = """\
 _RISK_SYSTEM = """\
 你是专注 Vibe Coding 场景的代码审查专家。
 
+【严重度定义——必须严格遵守】
+HIGH   = 可被外部攻击者直接利用 OR 导致数据丢失/服务崩溃的缺陷。
+         典型例子：SQL注入、XSS、命令注入、硬编码密钥、明文存储密码、
+                   未授权访问、可被重放的身份验证缺陷。
+MEDIUM = 存在真实风险但需要特定条件，或影响范围有限。
+         典型例子：N+1查询、无分页、内存泄漏、竞态条件、弱随机数用于安全场景。
+LOW    = 代码质量/可维护性问题，无直接安全或稳定性影响。
+         典型例子：裸except、资源未关闭、魔法数字、print调试、可变默认参数、
+                   缺少输入格式校验（非安全边界）、浮点数比较、未处理Promise。
+
+【判断原则】
+- 如果一段代码没有直接暴露给外部攻击者，不能评为 HIGH
+- 代码风格问题、可读性问题、优化建议 → 最高 LOW
+- 看到好的代码实践（参数化查询、bcrypt哈希、有过期的JWT）→ 不要误报
+
 规则：
 1. 只报告有具体代码证据的问题，不做推测性建议
 2. 每条风险必须有文件名和行号（如无法确定行号，写 null）
@@ -182,10 +197,16 @@ class Analyzer:
         return resp.choices[0].message.content.strip()
 
     def _layer1_summary(self, context: str) -> Summary:
-        """Fast summary — Layer 1."""
-        raw = self._call(FAST_MODEL, _SUMMARY_SYSTEM,
-                         _SUMMARY_USER.format(context=context), max_tokens=512)
-        d = json.loads(_strip_code_fence(raw))
+        """Fast summary — Layer 1. Retries once on JSON parse failure."""
+        for attempt in range(2):
+            raw = self._call(FAST_MODEL, _SUMMARY_SYSTEM,
+                             _SUMMARY_USER.format(context=context), max_tokens=512)
+            try:
+                d = json.loads(_strip_code_fence(raw))
+                break
+            except json.JSONDecodeError:
+                if attempt == 1:
+                    raise
         return Summary(
             what_changed=d.get("what_changed", ""),
             change_type=d.get("change_type", "other"),
@@ -194,10 +215,18 @@ class Analyzer:
         )
 
     def _layer2_risks(self, context: str) -> dict:
-        """Deep risk analysis — Layer 2."""
-        raw = self._call(DEEP_MODEL, _RISK_SYSTEM,
-                         _RISK_USER.format(context=context), max_tokens=4096)
-        d = json.loads(_strip_code_fence(raw))
+        """Deep risk analysis — Layer 2. Retries once on JSON parse failure."""
+        for attempt in range(2):
+            raw = self._call(DEEP_MODEL, _RISK_SYSTEM,
+                             _RISK_USER.format(context=context), max_tokens=4096)
+            try:
+                d = json.loads(_strip_code_fence(raw))
+                break
+            except json.JSONDecodeError:
+                if attempt == 1:
+                    raise
+                # 第一次失败：加一条提示重新生成
+                context = context + "\n\n[注意：上次输出的JSON格式有误，请重新输出合法JSON，不要包含任何注释或特殊字符]"
 
         risks = [
             Risk(
