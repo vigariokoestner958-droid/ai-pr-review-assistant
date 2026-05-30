@@ -7,7 +7,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-blue)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green)](https://fastapi.tiangolo.com/)
 [![Claude](https://img.shields.io/badge/AI-Claude%20Sonnet%204.6-purple)](https://anthropic.com/)
-[![Eval](https://img.shields.io/badge/Eval-100%20cases%20%7C%2089%25%20accuracy-brightgreen)]()
+[![Eval](https://img.shields.io/badge/Eval-100%20cases%20%7C%2081%25%20accuracy-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 ---
@@ -46,7 +46,7 @@
   └─ BUSINESS_ANALYSIS.md         ← 商业：LTV/CAC >7x、盈亏平衡仅需5用户、12个月预测
        ↓
 系统性评测效果
-  └─ eval/EVAL_REPORT.md          ← 验证：100用例、修复前65% → 修复后78%、归因分析
+  └─ eval/EVAL_REPORT.md          ← 验证：100用例、修复前65% → 修复后81%、归因分析
        ↓
 数据驱动持续调优
   └─ tuning/analyze.py            ← 闭环：持续性错误识别 + 自动生成 Prompt 修改建议
@@ -60,7 +60,7 @@
 | **计划** | [roadmap.md](roadmap.md) | 12周发布路线图：Alpha → Beta → v1.0，12个 Epic 优先级矩阵与里程碑 |
 | **技术** | [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | **（竞赛硬性要求）** 模型选择理由、上下文获取优先级、误报控制机制、未来扩展方向 |
 | **商业** | [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md) | TAM $3.6亿、单次成本 $0.02–0.05、LTV/CAC >7x、**盈亏平衡仅需5个付费用户**、12个月财务预测 |
-| **验证** | [eval/EVAL_REPORT.md](eval/EVAL_REPORT.md) | 100用例评测：修复前 65% → 修复后 **78%**，误报/漏报完整归因（4类根因）与错误数据集 |
+| **验证** | [eval/EVAL_REPORT.md](eval/EVAL_REPORT.md) | 100用例评测：修复前 65% → 修复后 **81%**，漏报0个，误报18个，完整归因与错误数据集 |
 | **调优闭环** | [tuning/analyze.py](tuning/analyze.py) | 自动检测持续性错误、退化/改进对比、生成具体 Prompt 修改建议，跑完 eval 自动写入 |
 
 ---
@@ -160,12 +160,12 @@ SOM = 1,000付费用户 × $9/月 = 108,000美元/年（Year 1）
 | 类别 | 修复前 | 修复后 | 变化 |
 |------|--------|--------|------|
 | **安全漏洞识别** | 83% | **86%** | +3pp |
-| **代码质量判断** | 27% | **73%** | **+46pp** |
+| **代码质量判断** | 27% | **80%** | **+53pp** |
 | **干净代码识别（误报控制）**| 67% | **80%** | **+13pp** |
-| 性能问题识别 | 55% | **65%** | +10pp |
-| 边界/陷阱用例 | 73% | **80%** | +7pp |
-| **本地用例整体** | 65% | **78%** | **+13pp** |
-| **真实 PR 测试（新）** | — | **89%**（9/9新PR，#6-14）| — |
+| 性能问题识别 | 55% | **70%** | +15pp |
+| 边界/陷阱用例 | 73% | **87%** | +14pp |
+| **本地用例整体** | 65% | **81%** ✅ | **+16pp** |
+| **真实 PR 测试** | — | **89%**（9/10新PR，#6-14）| — |
 
 ### 本地测试用例覆盖
 
