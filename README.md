@@ -24,15 +24,44 @@
 
 ### 📂 项目文档导览
 
-| 文档 | 内容简述 |
-|------|---------|
-| [pr-review-prd-final.md](pr-review-prd-final.md) | 产品需求文档：用户画像（Vibe Coder）、痛点分析、用户故事与验收标准、成功指标定义 |
-| [engineering-spec.md](engineering-spec.md) | 工程化执行文档：Sprint 计划、技术选型决策、双层模型 Prompt 策略设计 |
-| [roadmap.md](roadmap.md) | 12周发布路线图：Alpha → Beta → v1.0，12个 Epic 优先级矩阵与里程碑 |
-| [product-strategy.md](product-strategy.md) | 产品战略：竞品全景分析、差异化定位图、GTM 冷启动策略、增长飞轮设计 |
-| [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | **系统设计说明（竞赛硬性要求）**：模型选择理由、上下文获取优先级、误报控制机制、未来扩展方向 |
-| [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md) | 商业可行性分析：TAM $3.6亿、单次成本 $0.02–0.05、LTV/CAC >7x、12个月财务预测与 Go/No-Go 判断 |
-| [eval/EVAL_REPORT.md](eval/EVAL_REPORT.md) | 100用例评测报告：修复前 65% → 修复后 **78%**，误报/漏报完整归因（4类根因）与错误数据集 |
+本项目的完整思路链路是：**想法 → 怎么做 → 计划 → 策略 → 技术 → 商业 → 验证 → 调优闭环**，每个阶段都有对应文档，评委可按需直接跳转。
+
+```
+发现痛点，定义产品
+  └─ pr-review-prd-final.md       ← 想法：问题是什么、为谁做、做什么
+       ↓
+设计实现方案
+  └─ engineering-spec.md          ← 怎么做：架构选型、Prompt 策略、Sprint 拆分
+       ↓
+规划交付节奏
+  └─ roadmap.md                   ← 计划：12周路线图、Epic 优先级、里程碑
+       ↓
+明确市场方向
+  └─ product-strategy.md          ← 策略：竞品分析、差异化定位、GTM 冷启动
+       ↓
+落地技术细节
+  └─ SYSTEM_DESIGN.md             ← 技术：模型选择、上下文获取、误报控制、扩展方向
+       ↓
+验证商业可行性
+  └─ BUSINESS_ANALYSIS.md         ← 商业：成本结构、盈亏平衡、LTV/CAC、12个月预测
+       ↓
+系统性评测效果
+  └─ eval/EVAL_REPORT.md          ← 验证：100用例、修复前65% → 修复后78%、归因分析
+       ↓
+数据驱动持续调优
+  └─ tuning/analyze.py            ← 闭环：持续性错误识别 + 自动生成 Prompt 修改建议
+```
+
+| 阶段 | 文档 | 核心内容 |
+|------|------|---------|
+| **想法** | [pr-review-prd-final.md](pr-review-prd-final.md) | 用户画像（Vibe Coder）、四层能力缺口、用户故事与验收标准、成功指标 |
+| **怎么做** | [engineering-spec.md](engineering-spec.md) | Sprint 计划、技术选型决策、双层模型 Prompt 策略设计 |
+| **计划** | [roadmap.md](roadmap.md) | 12周发布路线图：Alpha → Beta → v1.0，12个 Epic 优先级矩阵与里程碑 |
+| **策略** | [product-strategy.md](product-strategy.md) | 竞品全景分析、差异化定位图、GTM 冷启动策略、PLG 增长飞轮设计 |
+| **技术** | [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | **（竞赛硬性要求）** 模型选择理由、上下文获取优先级、误报控制机制、未来扩展方向 |
+| **商业** | [BUSINESS_ANALYSIS.md](BUSINESS_ANALYSIS.md) | TAM $3.6亿、单次成本 $0.02–0.05、LTV/CAC >7x、12个月财务预测、Go/No-Go 判断 |
+| **验证** | [eval/EVAL_REPORT.md](eval/EVAL_REPORT.md) | 100用例评测：修复前 65% → 修复后 **78%**，误报/漏报完整归因（4类根因）与错误数据集 |
+| **调优闭环** | [tuning/analyze.py](tuning/analyze.py) | 自动检测持续性错误、退化/改进对比、生成具体 Prompt 修改建议，跑完 eval 自动写入 |
 
 ---
 
