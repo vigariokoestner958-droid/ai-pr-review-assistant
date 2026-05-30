@@ -231,6 +231,14 @@ def run_eval(cases, limit=None, save=True):
         output_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n💾 结果已保存：{output_file}")
 
+        # 自动写入调优数据库
+        try:
+            from tuning.db import save_run
+            save_run(timestamp, results)
+            print(f"📊 已同步到调优数据库（运行 python -m tuning.analyze 查看分析）")
+        except Exception as e:
+            print(f"[tuning db] 写入跳过：{e}")
+
     return results
 
 
