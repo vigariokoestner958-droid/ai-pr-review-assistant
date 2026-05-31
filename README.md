@@ -14,7 +14,7 @@
 
 ## 🎬 演示视频
 
-> **📺 B 站演示视频：**（上传后补充链接）
+> **📺 B 站演示视频：** https://www.bilibili.com/video/BV18dVJ6CEx9/
 
 ---
 
