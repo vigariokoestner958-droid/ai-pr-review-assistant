@@ -1,4 +1,4 @@
-# 🤖 X-Reviewer
+# <img src="logo.svg" height="36" align="center" alt="X-Reviewer logo"> X-Reviewer
 
 > 为 Vibe Coder 设计的 GitHub Pull Request 智能代码审查工具
 >
